@@ -1,0 +1,48 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Link Opener version
+      description: Shown at the bottom of Settings.
+      placeholder: "0.2.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: os-details
+    attributes:
+      label: OS version and details
+      description: e.g. "Windows 11 ARM64", "macOS 15", "Fedora 41, GNOME on Wayland, Firefox from Flatpak"
+  - type: textarea
+    id: browsers
+    attributes:
+      label: Browsers involved
+      description: >
+        For problems with finding or opening browsers: which browser, how it's installed, and which
+        profiles you have. In the app's source folder, `cargo test print_detected -- --ignored
+        --nocapture` (in src-tauri) prints what Link Opener detects. Remove anything private, such
+        as profile emails.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, error messages, steps to reproduce.
