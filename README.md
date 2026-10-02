@@ -8,8 +8,23 @@ set for that bookmark or folder. Runs on Windows, macOS and Linux.
 - Detects installed browsers and their profiles (Chromium family, Firefox family, Safari)
 - Fetches page titles and favicons
 - Tray icon, global shortcut (`Ctrl+Alt+Space` by default), launch at login
+- Backups, plus import from (and export to) browser bookmark files
 
-Built with Tauri 2 (Rust) and Svelte 5. See [PLAN.md](PLAN.md) for the design.
+Built with Tauri 2 (Rust) and Svelte 5.
+
+## Privacy
+
+Link Opener has no accounts, analytics or telemetry. Your library stays in a local SQLite
+database on your computer.
+
+- **Reads, never writes, browser data:** to list browsers and profiles it reads the Windows
+  registry (`StartMenuInternet`), `.desktop` files on Linux, app bundles' `Info.plist` on macOS,
+  and each browser's profile list (`Local State` for Chromium browsers, `profiles.ini` for
+  Firefox). It doesn't touch history, passwords or cookies.
+- **Network:** it only contacts the pages you bookmark, to fetch their title and icon (when you
+  add or edit a bookmark, or choose "Fetch missing icons"). Nothing else is sent anywhere.
+- **Opening links** starts the browser you pick with the link as an argument; it never goes
+  through a shell.
 
 ## Development
 
@@ -61,8 +76,9 @@ To publish a release:
 
 1. Bump the version in `src-tauri/tauri.conf.json` (and `package.json` / `src-tauri/Cargo.toml`
    to match).
-2. Commit, then tag and push: `git tag v0.2.0 && git push origin v0.2.0`.
-3. The workflow creates a **draft** release with the installers; review it and publish.
+2. Add the changes to [CHANGELOG.md](CHANGELOG.md).
+3. Commit, then tag and push: `git tag v0.3.0 && git push origin v0.3.0`.
+4. The workflow creates a **draft** release with the installers; review it and publish.
 
 ### Code signing
 
@@ -70,4 +86,19 @@ The installers are not signed yet, so Windows SmartScreen and macOS Gatekeeper w
 first launch (on macOS: right-click → Open). To sign, add the certificates as repository
 secrets and pass them to `tauri-action`; see Tauri's
 [Windows](https://tauri.app/distribute/sign/windows/) and
-[macOS](https://tauri.app/distribute/sign/macos/) signing guides.
+[macOS](https://tauri.app/distribute/sign/macos/) signing guides. Open-source projects can get
+free Windows signing from the [SignPath Foundation](https://signpath.org/).
+
+## Contributing
+
+Bug reports, browser-detection fixes and testing on Linux and macOS are especially welcome. See
+[CONTRIBUTING.md](CONTRIBUTING.md). To report a security problem, see [SECURITY.md](SECURITY.md).
+
+## License
+
+Copyright © 2026 hseyeved.
+
+Link Opener is free software: you can redistribute it and/or modify it under the terms of the
+GNU General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version. It is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY. See [LICENSE](LICENSE) for the full text.

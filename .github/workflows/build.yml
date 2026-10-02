@@ -41,7 +41,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, rustfmt
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -56,6 +56,10 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Rust formatting
+        working-directory: src-tauri
+        run: cargo fmt --check
+
       - name: Clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
@@ -64,9 +68,20 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
+  licenses:
+    name: Dependency licenses
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      # Every Rust dependency must be compatible with the GPL; see src-tauri/deny.toml.
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check licenses
+          manifest-path: src-tauri/Cargo.toml
+
   build:
     name: Installers (${{ matrix.name }})
-    needs: test
+    needs: [test, licenses]
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     permissions:
       contents: write # create the draft release on tags

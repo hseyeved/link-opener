@@ -184,7 +184,7 @@
     {/if}
 
     {#if version}
-      <footer class="version">Link Opener {version}</footer>
+      <footer class="version">Link Opener {version} · Free software under the GPL-3.0-or-later</footer>
     {/if}
   </div>
 </div>
