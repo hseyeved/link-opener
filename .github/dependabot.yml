@@ -16,6 +16,11 @@ updates:
     groups:
       npm-minor:
         update-types: [minor, patch]
+    ignore:
+      # SvelteKit and svelte-check only support TypeScript 5 and 6 so far (7 is the new Go
+      # compiler). Remove this once they accept "typescript": "^7".
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
