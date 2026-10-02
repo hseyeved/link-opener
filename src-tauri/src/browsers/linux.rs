@@ -60,7 +60,7 @@ pub fn detect_in(dirs: &[PathBuf]) -> Vec<Detected> {
             let Some(entry) = parse_desktop_entry(&text) else {
                 continue;
             };
-            if !entry.handles_https || id == "com.devistry.linkopener" {
+            if !entry.handles_https || id == "dev.linkopener" {
                 continue;
             }
             let exec = parse_exec(&entry.exec);

@@ -13,10 +13,6 @@ All notable changes to Link Opener. The format follows
 - Contributing and security guides, issue templates, and weekly dependency updates.
 - CI checks Rust formatting and that every dependency's license is compatible with the GPL.
 
-### Removed
-
-- The internal planning document.
-
 ### Security
 
 - A strict Content Security Policy for the app window.

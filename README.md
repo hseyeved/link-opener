@@ -48,9 +48,9 @@ cargo test print_detected -- --ignored --nocapture   # list this machine's brows
 LIVE_URLS="https://example.com" cargo test live_fetch -- --ignored --nocapture   # try a metadata fetch
 ```
 
-Data lives in the app data dir (`%APPDATA%\com.devistry.linkopener` on Windows,
-`~/Library/Application Support/com.devistry.linkopener` on macOS,
-`~/.local/share/com.devistry.linkopener` on Linux): `links.db` (SQLite) and `favicons/`.
+Data lives in the app data dir (`%APPDATA%\dev.linkopener` on Windows,
+`~/Library/Application Support/dev.linkopener` on macOS,
+`~/.local/share/dev.linkopener` on Linux): `links.db` (SQLite) and `favicons/`.
 
 ## Building installers
 

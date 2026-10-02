@@ -33,11 +33,7 @@ pub fn detect_in(dirs: &[PathBuf]) -> Vec<Detected> {
             let Some(info) = parse_info_plist(&bytes) else {
                 continue;
             };
-            if !info.handles_https
-                || info
-                    .bundle_id
-                    .eq_ignore_ascii_case("com.devistry.linkopener")
-            {
+            if !info.handles_https || info.bundle_id.eq_ignore_ascii_case("dev.linkopener") {
                 continue;
             }
             let name = info.name.unwrap_or_else(|| {
