@@ -1,0 +1,209 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --bg-sidebar: #f5f5f7;
+  --fg: #1d1d1f;
+  --muted: #6e6e73;
+  --border: #e2e2e6;
+  --hover: rgb(0 0 0 / 0.05);
+  --selected: rgb(10 100 230 / 0.12);
+  --accent: #0a64e6;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(10 100 230 / 0.12);
+  --danger: #d0302f;
+  --input-bg: #ffffff;
+
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e20;
+    --bg-sidebar: #18181a;
+    --fg: #ececf0;
+    --muted: #9a9aa2;
+    --border: #2f2f33;
+    --hover: rgb(255 255 255 / 0.06);
+    --selected: rgb(80 150 255 / 0.2);
+    --accent: #4d94ff;
+    --accent-fg: #ffffff;
+    --accent-soft: rgb(80 150 255 / 0.18);
+    --danger: #ff6b6b;
+    --input-bg: #2a2a2d;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+input,
+select,
+textarea {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+button {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent);
+  filter: brightness(1.1);
+}
+
+button.icon {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+}
+
+button.icon:hover {
+  color: var(--fg);
+}
+
+button.danger {
+  padding: 1px 8px;
+  border-color: var(--danger);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.error {
+  padding: 8px 10px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+/* Folder tree rows (shared by FolderTree and FolderNode). */
+.tree .row {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  padding-right: 4px;
+  border-radius: 6px;
+}
+
+.tree .row:hover {
+  background: var(--hover);
+}
+
+.tree .row.selected {
+  background: var(--selected);
+}
+
+/* Drag-and-drop indicators (tree rows and bookmark rows). */
+.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.drop-into {
+  background: var(--accent-soft) !important;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.tree .twisty {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  transition: transform 0.1s;
+}
+
+.tree .twisty.expanded {
+  transform: rotate(90deg);
+}
+
+.tree .name {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 4px;
+  border: none;
+  overflow: hidden;
+  text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tree .name:hover {
+  background: transparent;
+}
+
+.tree .actions {
+  display: flex;
+  align-items: center;
+  visibility: hidden;
+}
+
+.tree .row:hover .actions,
+.tree .row:focus-within .actions {
+  visibility: visible;
+}
