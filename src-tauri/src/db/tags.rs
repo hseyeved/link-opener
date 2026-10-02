@@ -24,7 +24,13 @@ pub fn list_all(conn: &Connection) -> AppResult<Vec<Tag>> {
          GROUP BY t.id ORDER BY t.name COLLATE NOCASE",
     )?;
     let tags = stmt
-        .query_map([], |r| Ok(Tag { id: r.get(0)?, name: r.get(1)?, count: r.get(2)? }))?
+        .query_map([], |r| {
+            Ok(Tag {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                count: r.get(2)?,
+            })
+        })?
         .collect::<Result<_, _>>()?;
     Ok(tags)
 }
@@ -54,9 +60,15 @@ pub fn normalize(names: &[String]) -> AppResult<Vec<String>> {
 /// Replaces the bookmark's tags with `names` (already normalized). An existing tag keeps
 /// its spelling: tagging with "rust" reuses "Rust".
 pub fn set_for_bookmark(conn: &Connection, bookmark_id: i64, names: &[String]) -> AppResult<()> {
-    conn.execute("DELETE FROM bookmark_tags WHERE bookmark_id = ?1", [bookmark_id])?;
+    conn.execute(
+        "DELETE FROM bookmark_tags WHERE bookmark_id = ?1",
+        [bookmark_id],
+    )?;
     for name in names {
-        conn.execute("INSERT INTO tags (name) VALUES (?1) ON CONFLICT (name) DO NOTHING", [name])?;
+        conn.execute(
+            "INSERT INTO tags (name) VALUES (?1) ON CONFLICT (name) DO NOTHING",
+            [name],
+        )?;
         conn.execute(
             "INSERT INTO bookmark_tags (bookmark_id, tag_id)
              SELECT ?1, id FROM tags WHERE name = ?2",
@@ -96,14 +108,21 @@ mod tests {
     }
 
     fn tag_names(conn: &Connection) -> Vec<(String, i64)> {
-        list_all(conn).unwrap().into_iter().map(|t| (t.name, t.count)).collect()
+        list_all(conn)
+            .unwrap()
+            .into_iter()
+            .map(|t| (t.name, t.count))
+            .collect()
     }
 
     #[test]
     fn normalize_names() {
         let names = normalize(&strings(&[" Rust ", "#web", "rust", "", "  # ", "Web"])).unwrap();
         assert_eq!(names, ["Rust", "web"]);
-        assert!(matches!(normalize(&["x".repeat(51)]), Err(AppError::Invalid(_))));
+        assert!(matches!(
+            normalize(&["x".repeat(51)]),
+            Err(AppError::Invalid(_))
+        ));
     }
 
     #[test]
@@ -111,7 +130,10 @@ mod tests {
         let conn = open_in_memory().unwrap();
         let b = add(&conn, None, &["zeta", "Alpha", "beta"]);
         assert_eq!(b.tags, ["Alpha", "beta", "zeta"]);
-        assert_eq!(bookmarks::get(&conn, b.id).unwrap().tags, ["Alpha", "beta", "zeta"]);
+        assert_eq!(
+            bookmarks::get(&conn, b.id).unwrap().tags,
+            ["Alpha", "beta", "zeta"]
+        );
         let untagged = add(&conn, None, &[]);
         assert!(untagged.tags.is_empty());
     }
@@ -129,13 +151,28 @@ mod tests {
     fn update_replaces_and_cleans_up() {
         let conn = open_in_memory().unwrap();
         let b = add(&conn, None, &["old", "keep"]);
-        let patch = BookmarkPatch { tags: Some(strings(&["keep", "new"])), ..Default::default() };
-        assert_eq!(bookmarks::update(&conn, b.id, patch).unwrap().tags, ["keep", "new"]);
-        assert_eq!(tag_names(&conn), [("keep".to_string(), 1), ("new".to_string(), 1)]);
+        let patch = BookmarkPatch {
+            tags: Some(strings(&["keep", "new"])),
+            ..Default::default()
+        };
+        assert_eq!(
+            bookmarks::update(&conn, b.id, patch).unwrap().tags,
+            ["keep", "new"]
+        );
+        assert_eq!(
+            tag_names(&conn),
+            [("keep".to_string(), 1), ("new".to_string(), 1)]
+        );
 
         // Patching other fields leaves tags alone.
-        let patch = BookmarkPatch { title: Some("t".into()), ..Default::default() };
-        assert_eq!(bookmarks::update(&conn, b.id, patch).unwrap().tags, ["keep", "new"]);
+        let patch = BookmarkPatch {
+            title: Some("t".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            bookmarks::update(&conn, b.id, patch).unwrap().tags,
+            ["keep", "new"]
+        );
     }
 
     #[test]

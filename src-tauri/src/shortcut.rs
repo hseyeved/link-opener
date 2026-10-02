@@ -21,7 +21,11 @@ struct Status {
 
 impl ActiveShortcut {
     pub fn error(&self) -> Option<String> {
-        self.0.lock().unwrap_or_else(|e| e.into_inner()).error.clone()
+        self.0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .error
+            .clone()
     }
 }
 
@@ -34,10 +38,30 @@ pub fn parse(text: &str) -> AppResult<Shortcut> {
         .map_err(|e| AppError::Invalid(format!("invalid shortcut \"{text}\": {e}")))?;
     let function_key = matches!(
         shortcut.key,
-        Code::F1 | Code::F2 | Code::F3 | Code::F4 | Code::F5 | Code::F6 | Code::F7 | Code::F8
-            | Code::F9 | Code::F10 | Code::F11 | Code::F12 | Code::F13 | Code::F14 | Code::F15
-            | Code::F16 | Code::F17 | Code::F18 | Code::F19 | Code::F20 | Code::F21 | Code::F22
-            | Code::F23 | Code::F24
+        Code::F1
+            | Code::F2
+            | Code::F3
+            | Code::F4
+            | Code::F5
+            | Code::F6
+            | Code::F7
+            | Code::F8
+            | Code::F9
+            | Code::F10
+            | Code::F11
+            | Code::F12
+            | Code::F13
+            | Code::F14
+            | Code::F15
+            | Code::F16
+            | Code::F17
+            | Code::F18
+            | Code::F19
+            | Code::F20
+            | Code::F21
+            | Code::F22
+            | Code::F23
+            | Code::F24
     );
     let weak = (shortcut.mods - Modifiers::SHIFT).is_empty();
     if weak && !function_key {

@@ -19,7 +19,11 @@ const MAX_ICON_BYTES: usize = 512 * 1024;
 /// Icon URLs tried per page, best first; each can take up to `TIMEOUT`.
 const MAX_ICON_ATTEMPTS: usize = 3;
 const MAX_TITLE_CHARS: usize = 300;
-const USER_AGENT: &str = concat!("Mozilla/5.0 (compatible; LinkOpener/", env!("CARGO_PKG_VERSION"), ")");
+const USER_AGENT: &str = concat!(
+    "Mozilla/5.0 (compatible; LinkOpener/",
+    env!("CARGO_PKG_VERSION"),
+    ")"
+);
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,7 +53,10 @@ impl Fetcher {
             .build()
             .map_err(|e| AppError::Fetch(e.to_string()))?;
         fs::create_dir_all(&favicon_dir)?;
-        Ok(Self { client, favicon_dir })
+        Ok(Self {
+            client,
+            favicon_dir,
+        })
     }
 
     /// Title and favicon for an http(s) URL. A page that can't be fetched still gets the
@@ -80,7 +87,12 @@ impl Fetcher {
     }
 
     async fn get_page(&self, url: &Url) -> AppResult<(Url, String)> {
-        let resp = self.client.get(url.clone()).send().await.map_err(fetch_err)?;
+        let resp = self
+            .client
+            .get(url.clone())
+            .send()
+            .await
+            .map_err(fetch_err)?;
         if !resp.status().is_success() {
             return Err(AppError::Fetch(format!("HTTP {}", resp.status())));
         }
@@ -99,20 +111,17 @@ impl Fetcher {
 
     /// Downloads and stores an icon; `None` if it isn't a recognisable image.
     async fn get_icon(&self, url: &Url) -> AppResult<Option<String>> {
-        let resp = self.client.get(url.clone()).send().await.map_err(fetch_err)?;
+        let resp = self
+            .client
+            .get(url.clone())
+            .send()
+            .await
+            .map_err(fetch_err)?;
         if !resp.status().is_success() {
             return Ok(None);
         }
         let bytes = read_limited(resp, MAX_ICON_BYTES).await?;
-        let Some(ext) = sniff_image(&bytes) else {
-            return Ok(None);
-        };
-        let name = icon_file_name(&bytes, ext);
-        let path = self.favicon_dir.join(&name);
-        if !path.exists() {
-            fs::write(&path, &bytes)?;
-        }
-        Ok(Some(name))
+        store_icon(&self.favicon_dir, &bytes)
     }
 }
 
@@ -209,11 +218,22 @@ fn icon_score(rel: &str, sizes: Option<&str>, mime: Option<&str>, href: &str) ->
         return None;
     }
     let svg = mime.is_some_and(|m| m.contains("svg"))
-        || href.split(['?', '#']).next().unwrap_or("").to_ascii_lowercase().ends_with(".svg");
+        || href
+            .split(['?', '#'])
+            .next()
+            .unwrap_or("")
+            .to_ascii_lowercase()
+            .ends_with(".svg");
     let largest = sizes
         .unwrap_or("")
         .split_ascii_whitespace()
-        .filter_map(|s| s.to_ascii_lowercase().split_once('x')?.0.parse::<i32>().ok())
+        .filter_map(|s| {
+            s.to_ascii_lowercase()
+                .split_once('x')?
+                .0
+                .parse::<i32>()
+                .ok()
+        })
         .max();
     Some(match largest {
         Some(px) if px >= 32 => 100 - ((px - 64).abs() / 16).min(40),
@@ -245,8 +265,26 @@ pub fn sniff_image(bytes: &[u8]) -> Option<&'static str> {
     } else {
         let head = String::from_utf8_lossy(&bytes[..bytes.len().min(1024)]).to_ascii_lowercase();
         let head = head.trim_start_matches('\u{feff}').trim_start();
-        ((head.starts_with("<svg") || head.starts_with("<?xml")) && head.contains("<svg")).then_some("svg")
+        ((head.starts_with("<svg") || head.starts_with("<?xml")) && head.contains("<svg"))
+            .then_some("svg")
     }
+}
+
+/// Saves image bytes in the favicons dir and returns the file name; `None` if the bytes
+/// aren't a supported image or are too large.
+pub fn store_icon(dir: &Path, bytes: &[u8]) -> AppResult<Option<String>> {
+    if bytes.len() > MAX_ICON_BYTES {
+        return Ok(None);
+    }
+    let Some(ext) = sniff_image(bytes) else {
+        return Ok(None);
+    };
+    let name = icon_file_name(bytes, ext);
+    let path = dir.join(&name);
+    if !path.exists() {
+        fs::write(&path, bytes)?;
+    }
+    Ok(Some(name))
 }
 
 fn icon_file_name(bytes: &[u8], ext: &str) -> String {
@@ -261,7 +299,9 @@ pub fn is_favicon_name(name: &str) -> bool {
         return false;
     };
     hash.len() == 32
-        && hash.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        && hash
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
         && ["png", "ico", "gif", "jpg", "webp", "svg"].contains(&ext)
 }
 
@@ -270,7 +310,8 @@ pub fn remove_unused(dir: &Path, used: &HashSet<String>) -> AppResult<usize> {
     let mut removed = 0;
     for entry in fs::read_dir(dir)?.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if is_favicon_name(&name) && !used.contains(&name) && fs::remove_file(entry.path()).is_ok() {
+        if is_favicon_name(&name) && !used.contains(&name) && fs::remove_file(entry.path()).is_ok()
+        {
             removed += 1;
         }
     }
@@ -295,10 +336,16 @@ mod tests {
             <title>  Rust   Book | Docs  </title>
             <meta property="og:title" content="The Rust Book">
         </head></html>"#;
-        assert_eq!(parse_page(html, &base()).title.as_deref(), Some("The Rust Book"));
+        assert_eq!(
+            parse_page(html, &base()).title.as_deref(),
+            Some("The Rust Book")
+        );
 
         let html = "<title>\n  Plain &amp; Simple\n</title>";
-        assert_eq!(parse_page(html, &base()).title.as_deref(), Some("Plain & Simple"));
+        assert_eq!(
+            parse_page(html, &base()).title.as_deref(),
+            Some("Plain & Simple")
+        );
         assert_eq!(parse_page("<p>no title</p>", &base()).title, None);
         assert_eq!(parse_page("<title>   </title>", &base()).title, None);
     }
@@ -315,7 +362,11 @@ mod tests {
             <link rel="icon" href="data:image/png;base64,AAAA">
             <link rel="icon" href="/favicon.ico">
         </head>"#;
-        let icons: Vec<String> = parse_page(html, &base()).icons.into_iter().map(String::from).collect();
+        let icons: Vec<String> = parse_page(html, &base())
+            .icons
+            .into_iter()
+            .map(String::from)
+            .collect();
         assert_eq!(
             icons,
             [
@@ -330,12 +381,17 @@ mod tests {
     #[test]
     fn icon_attempt_order() {
         let u = |s: &str| Url::parse(s).unwrap();
-        let page: Vec<Url> = (1..=5).map(|i| u(&format!("https://cdn.example/{i}.png"))).collect();
-        let attempts: Vec<String> =
-            icon_attempts(page, &u("https://gmail.com/"), Some(&u("https://accounts.google.com/signin")))
-                .into_iter()
-                .map(String::from)
-                .collect();
+        let page: Vec<Url> = (1..=5)
+            .map(|i| u(&format!("https://cdn.example/{i}.png")))
+            .collect();
+        let attempts: Vec<String> = icon_attempts(
+            page,
+            &u("https://gmail.com/"),
+            Some(&u("https://accounts.google.com/signin")),
+        )
+        .into_iter()
+        .map(String::from)
+        .collect();
         assert_eq!(
             attempts,
             [
@@ -349,13 +405,18 @@ mod tests {
         // No redirect, page unreachable: just the site's favicon.ico, once.
         let attempts = icon_attempts(vec![], &u("https://a.example/x"), None);
         assert_eq!(attempts, [u("https://a.example/favicon.ico")]);
-        let attempts = icon_attempts(vec![], &u("https://a.example/x"), Some(&u("https://a.example/y")));
+        let attempts = icon_attempts(
+            vec![],
+            &u("https://a.example/x"),
+            Some(&u("https://a.example/y")),
+        );
         assert_eq!(attempts, [u("https://a.example/favicon.ico")]);
     }
 
     #[test]
     fn base_href_applies() {
-        let html = r#"<base href="https://static.example.org/assets/"><link rel="icon" href="f.ico">"#;
+        let html =
+            r#"<base href="https://static.example.org/assets/"><link rel="icon" href="f.ico">"#;
         let icons = parse_page(html, &base()).icons;
         assert_eq!(icons[0].as_str(), "https://static.example.org/assets/f.ico");
     }
@@ -367,8 +428,14 @@ mod tests {
         assert_eq!(sniff_image(b"GIF89a..."), Some("gif"));
         assert_eq!(sniff_image(&[0xFF, 0xD8, 0xFF, 0xE0]), Some("jpg"));
         assert_eq!(sniff_image(b"RIFF\0\0\0\0WEBPVP8 "), Some("webp"));
-        assert_eq!(sniff_image(b"\xEF\xBB\xBF <svg xmlns='...'></svg>"), Some("svg"));
-        assert_eq!(sniff_image(b"<?xml version='1.0'?><svg></svg>"), Some("svg"));
+        assert_eq!(
+            sniff_image(b"\xEF\xBB\xBF <svg xmlns='...'></svg>"),
+            Some("svg")
+        );
+        assert_eq!(
+            sniff_image(b"<?xml version='1.0'?><svg></svg>"),
+            Some("svg")
+        );
         assert_eq!(sniff_image(b"<!doctype html><html>"), None);
         assert_eq!(sniff_image(b""), None);
     }
@@ -414,7 +481,11 @@ mod tests {
                 while reader.read_line(&mut line).is_ok_and(|n| n > 2) {
                     line.clear();
                 }
-                let path = request_line.split_whitespace().nth(1).unwrap_or("/").to_string();
+                let path = request_line
+                    .split_whitespace()
+                    .nth(1)
+                    .unwrap_or("/")
+                    .to_string();
                 let mut stream = &stream;
                 match routes.iter().find(|(p, _, _)| *p == path) {
                     Some((_, ctype, body)) => {
@@ -459,7 +530,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let fetcher = Fetcher::new(dir.path().to_path_buf()).unwrap();
         // The page itself 404s.
-        let meta = tauri::async_runtime::block_on(fetcher.fetch(&format!("{origin}/article"))).unwrap();
+        let meta =
+            tauri::async_runtime::block_on(fetcher.fetch(&format!("{origin}/article"))).unwrap();
         assert_eq!(meta.title, None);
         assert!(meta.favicon.unwrap().ends_with(".ico"));
     }
@@ -471,12 +543,16 @@ mod tests {
     fn live_fetch() {
         let dir = tempfile::tempdir().unwrap();
         let fetcher = Fetcher::new(dir.path().to_path_buf()).unwrap();
-        let urls = std::env::var("LIVE_URLS")
-            .unwrap_or_else(|_| "https://www.rust-lang.org/ https://github.com/tauri-apps/tauri".into());
+        let urls = std::env::var("LIVE_URLS").unwrap_or_else(|_| {
+            "https://www.rust-lang.org/ https://github.com/tauri-apps/tauri".into()
+        });
         for url in urls.split_whitespace() {
             let meta = tauri::async_runtime::block_on(fetcher.fetch(url)).unwrap();
             println!("{url}: {meta:?}");
-            assert!(meta.title.is_some() && meta.favicon.is_some(), "{url}: {meta:?}");
+            assert!(
+                meta.title.is_some() && meta.favicon.is_some(),
+                "{url}: {meta:?}"
+            );
         }
     }
 

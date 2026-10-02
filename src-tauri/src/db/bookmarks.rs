@@ -65,7 +65,8 @@ where
 }
 
 /// Selects from `bookmarks b`. Tags come back as one string separated by U+001F.
-pub(crate) const COLUMNS: &str = "b.id, b.folder_id, b.title, b.url, b.notes, b.favicon, b.position, \
+pub(crate) const COLUMNS: &str =
+    "b.id, b.folder_id, b.title, b.url, b.notes, b.favicon, b.position, \
     b.default_target, b.created_at, b.updated_at, b.last_opened_at, b.open_count, \
     (SELECT group_concat(name, char(31)) FROM (
         SELECT t.name FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id
@@ -112,6 +113,17 @@ pub fn list(conn: &Connection, folder_id: Option<i64>) -> AppResult<Vec<Bookmark
     ))?;
     let bookmarks = stmt
         .query_map([folder_id], Bookmark::from_row)?
+        .collect::<Result<_, _>>()?;
+    Ok(bookmarks)
+}
+
+/// Every bookmark, by folder then position.
+pub fn list_all(conn: &Connection) -> AppResult<Vec<Bookmark>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {COLUMNS} FROM bookmarks b ORDER BY b.folder_id, b.position, b.id"
+    ))?;
+    let bookmarks = stmt
+        .query_map([], Bookmark::from_row)?
         .collect::<Result<_, _>>()?;
     Ok(bookmarks)
 }
@@ -218,7 +230,9 @@ pub fn move_to(
     ensure_folder(conn, folder_id)?;
     let tx = conn.unchecked_transaction()?;
     let mut ids: Vec<i64> = tx
-        .prepare_cached("SELECT id FROM bookmarks WHERE folder_id IS ?1 AND id != ?2 ORDER BY position, id")?
+        .prepare_cached(
+            "SELECT id FROM bookmarks WHERE folder_id IS ?1 AND id != ?2 ORDER BY position, id",
+        )?
         .query_map(params![folder_id, id], |r| r.get(0))?
         .collect::<Result<_, _>>()?;
     ids.insert(index.unwrap_or(ids.len()).min(ids.len()), id);
@@ -242,14 +256,25 @@ pub fn delete(conn: &Connection, id: i64) -> AppResult<()> {
 
 /// Stores fetched metadata: sets the favicon (when one was found) and fills the title only
 /// if it is still empty, so a title the user typed is never overwritten.
-pub fn apply_metadata(conn: &Connection, id: i64, title: Option<&str>, favicon: Option<&str>) -> AppResult<Bookmark> {
+pub fn apply_metadata(
+    conn: &Connection,
+    id: i64,
+    title: Option<&str>,
+    favicon: Option<&str>,
+) -> AppResult<Bookmark> {
     validate_favicon(favicon)?;
     get(conn, id)?;
     if let Some(favicon) = favicon {
-        conn.execute("UPDATE bookmarks SET favicon = ?2 WHERE id = ?1", params![id, favicon])?;
+        conn.execute(
+            "UPDATE bookmarks SET favicon = ?2 WHERE id = ?1",
+            params![id, favicon],
+        )?;
     }
     if let Some(title) = title {
-        conn.execute("UPDATE bookmarks SET title = ?2 WHERE id = ?1 AND title = ''", params![id, title])?;
+        conn.execute(
+            "UPDATE bookmarks SET title = ?2 WHERE id = ?1 AND title = ''",
+            params![id, title],
+        )?;
     }
     get(conn, id)
 }
@@ -261,14 +286,19 @@ pub fn missing_favicons(conn: &Connection) -> AppResult<Vec<(i64, String)>> {
          WHERE favicon IS NULL AND (url LIKE 'http://%' OR url LIKE 'https://%')
          ORDER BY id",
     )?;
-    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+    let rows = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<_, _>>()?;
     Ok(rows)
 }
 
 /// Favicon names that bookmarks use, for cleaning up the favicons dir.
 pub fn favicons_in_use(conn: &Connection) -> AppResult<std::collections::HashSet<String>> {
-    let mut stmt = conn.prepare("SELECT DISTINCT favicon FROM bookmarks WHERE favicon IS NOT NULL")?;
-    let names = stmt.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    let mut stmt =
+        conn.prepare("SELECT DISTINCT favicon FROM bookmarks WHERE favicon IS NOT NULL")?;
+    let names = stmt
+        .query_map([], |r| r.get(0))?
+        .collect::<Result<_, _>>()?;
     Ok(names)
 }
 
@@ -301,7 +331,7 @@ fn ensure_folder(conn: &Connection, folder_id: Option<i64>) -> AppResult<()> {
     }
 }
 
-fn next_position(conn: &Connection, folder_id: Option<i64>) -> AppResult<i64> {
+pub(crate) fn next_position(conn: &Connection, folder_id: Option<i64>) -> AppResult<i64> {
     Ok(conn.query_row(
         "SELECT COALESCE(MAX(position) + 1, 0) FROM bookmarks WHERE folder_id IS ?1",
         [folder_id],
@@ -379,15 +409,25 @@ mod tests {
         let b = create(&conn, new(Some(f.id), "b", "b.com")).unwrap();
         let u = create(&conn, new(None, "u", "u.com")).unwrap();
         assert_eq!((a.position, b.position, u.position), (0, 1, 0));
-        let titles: Vec<_> = list(&conn, Some(f.id)).unwrap().into_iter().map(|b| b.title).collect();
+        let titles: Vec<_> = list(&conn, Some(f.id))
+            .unwrap()
+            .into_iter()
+            .map(|b| b.title)
+            .collect();
         assert_eq!(titles, ["a", "b"]);
     }
 
     #[test]
     fn create_rejects_missing_folder_and_empty_url() {
         let conn = open_in_memory().unwrap();
-        assert!(matches!(create(&conn, new(Some(7), "x", "x.com")), Err(AppError::NotFound(_))));
-        assert!(matches!(create(&conn, new(None, "x", "  ")), Err(AppError::Invalid(_))));
+        assert!(matches!(
+            create(&conn, new(Some(7), "x", "x.com")),
+            Err(AppError::NotFound(_))
+        ));
+        assert!(matches!(
+            create(&conn, new(None, "x", "  ")),
+            Err(AppError::Invalid(_))
+        ));
     }
 
     #[test]
@@ -405,13 +445,31 @@ mod tests {
         assert_eq!(u.url, "https://old.com");
         assert!(u.updated_at >= b.updated_at);
 
-        let u = update(&conn, b.id, BookmarkPatch { url: Some("http://new.com".into()), ..Default::default() }).unwrap();
+        let u = update(
+            &conn,
+            b.id,
+            BookmarkPatch {
+                url: Some("http://new.com".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert_eq!(u.url, "http://new.com");
         assert!(matches!(
-            update(&conn, b.id, BookmarkPatch { url: Some("".into()), ..Default::default() }),
+            update(
+                &conn,
+                b.id,
+                BookmarkPatch {
+                    url: Some("".into()),
+                    ..Default::default()
+                }
+            ),
             Err(AppError::Invalid(_))
         ));
-        assert!(matches!(update(&conn, 999, BookmarkPatch::default()), Err(AppError::NotFound(_))));
+        assert!(matches!(
+            update(&conn, 999, BookmarkPatch::default()),
+            Err(AppError::NotFound(_))
+        ));
     }
 
     #[test]
@@ -423,20 +481,51 @@ mod tests {
         let u = create(&conn, new(None, "u", "u.com")).unwrap();
         assert_eq!(u.position, 0);
 
-        let moved = update(&conn, u.id, BookmarkPatch { folder_id: Some(Some(f.id)), ..Default::default() }).unwrap();
+        let moved = update(
+            &conn,
+            u.id,
+            BookmarkPatch {
+                folder_id: Some(Some(f.id)),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert_eq!(moved.folder_id, Some(f.id));
         assert_eq!(moved.position, 2);
 
         // Same folder: position unchanged.
-        let same = update(&conn, u.id, BookmarkPatch { folder_id: Some(Some(f.id)), ..Default::default() }).unwrap();
+        let same = update(
+            &conn,
+            u.id,
+            BookmarkPatch {
+                folder_id: Some(Some(f.id)),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert_eq!(same.position, 2);
 
-        let back = update(&conn, u.id, BookmarkPatch { folder_id: Some(None), ..Default::default() }).unwrap();
+        let back = update(
+            &conn,
+            u.id,
+            BookmarkPatch {
+                folder_id: Some(None),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert_eq!(back.folder_id, None);
         assert_eq!(back.position, 0);
 
         assert!(matches!(
-            update(&conn, u.id, BookmarkPatch { folder_id: Some(Some(999)), ..Default::default() }),
+            update(
+                &conn,
+                u.id,
+                BookmarkPatch {
+                    folder_id: Some(Some(999)),
+                    ..Default::default()
+                }
+            ),
             Err(AppError::NotFound(_))
         ));
     }
@@ -448,7 +537,13 @@ mod tests {
         let a = create(&conn, new(None, "a", "a.com")).unwrap();
         let b = create(&conn, new(None, "b", "b.com")).unwrap();
         let c = create(&conn, new(None, "c", "c.com")).unwrap();
-        let titles = |folder| -> Vec<String> { list(&conn, folder).unwrap().into_iter().map(|b| b.title).collect() };
+        let titles = |folder| -> Vec<String> {
+            list(&conn, folder)
+                .unwrap()
+                .into_iter()
+                .map(|b| b.title)
+                .collect()
+        };
 
         move_to(&conn, c.id, None, Some(0)).unwrap();
         assert_eq!(titles(None), ["c", "a", "b"]);
@@ -463,22 +558,48 @@ mod tests {
         move_to(&conn, c.id, Some(f.id), Some(0)).unwrap();
         assert_eq!(titles(Some(f.id)), ["c", "b"]);
 
-        assert!(matches!(move_to(&conn, a.id, Some(999), None), Err(AppError::NotFound(_))));
-        assert!(matches!(move_to(&conn, 999, None, None), Err(AppError::NotFound(_))));
+        assert!(matches!(
+            move_to(&conn, a.id, Some(999), None),
+            Err(AppError::NotFound(_))
+        ));
+        assert!(matches!(
+            move_to(&conn, 999, None, None),
+            Err(AppError::NotFound(_))
+        ));
     }
 
     #[test]
     fn default_target_set_and_clear() {
         let conn = open_in_memory().unwrap();
-        let target = LaunchTarget { browser_id: "firefox".into(), profile_id: Some("work".into()), private: true };
+        let target = LaunchTarget {
+            browser_id: "firefox".into(),
+            profile_id: Some("work".into()),
+            private: true,
+        };
         let mut n = new(None, "x", "x.com");
         n.default_target = Some(target.clone());
         let b = create(&conn, n).unwrap();
         assert_eq!(b.default_target.as_ref(), Some(&target));
 
-        let untouched = update(&conn, b.id, BookmarkPatch { title: Some("y".into()), ..Default::default() }).unwrap();
+        let untouched = update(
+            &conn,
+            b.id,
+            BookmarkPatch {
+                title: Some("y".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert_eq!(untouched.default_target.as_ref(), Some(&target));
-        let cleared = update(&conn, b.id, BookmarkPatch { default_target: Some(None), ..Default::default() }).unwrap();
+        let cleared = update(
+            &conn,
+            b.id,
+            BookmarkPatch {
+                default_target: Some(None),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert_eq!(cleared.default_target, None);
     }
 
@@ -488,24 +609,44 @@ mod tests {
         let icon = "0123456789abcdef0123456789abcdef.png";
         let mut n = new(None, "", "x.com");
         n.favicon = Some("../evil.png".into());
-        assert!(matches!(create(&conn, n.clone()), Err(AppError::Invalid(_))));
+        assert!(matches!(
+            create(&conn, n.clone()),
+            Err(AppError::Invalid(_))
+        ));
         n.favicon = Some(icon.into());
         let b = create(&conn, n).unwrap();
         assert_eq!(b.favicon.as_deref(), Some(icon));
 
         // Metadata fills an empty title but never replaces one.
         let b = apply_metadata(&conn, b.id, Some("Fetched"), None).unwrap();
-        assert_eq!((b.title.as_str(), b.favicon.as_deref()), ("Fetched", Some(icon)));
+        assert_eq!(
+            (b.title.as_str(), b.favicon.as_deref()),
+            ("Fetched", Some(icon))
+        );
         let b = apply_metadata(&conn, b.id, Some("Other"), None).unwrap();
         assert_eq!(b.title, "Fetched");
         assert_eq!(favicons_in_use(&conn).unwrap(), [icon.to_string()].into());
         let other = create(&conn, new(None, "", "y.com")).unwrap();
         create(&conn, new(None, "", "mailto:me@example.com")).unwrap();
-        assert_eq!(missing_favicons(&conn).unwrap(), [(other.id, "https://y.com".to_string())]);
+        assert_eq!(
+            missing_favicons(&conn).unwrap(),
+            [(other.id, "https://y.com".to_string())]
+        );
 
-        let cleared = update(&conn, b.id, BookmarkPatch { favicon: Some(None), ..Default::default() }).unwrap();
+        let cleared = update(
+            &conn,
+            b.id,
+            BookmarkPatch {
+                favicon: Some(None),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert_eq!(cleared.favicon, None);
-        assert!(matches!(apply_metadata(&conn, 999, None, None), Err(AppError::NotFound(_))));
+        assert!(matches!(
+            apply_metadata(&conn, 999, None, None),
+            Err(AppError::NotFound(_))
+        ));
     }
 
     #[test]
@@ -528,7 +669,10 @@ mod tests {
         assert_eq!(after.open_count, 2);
         assert!(after.last_opened_at.is_some());
         assert_eq!(after.updated_at, b.updated_at);
-        assert!(matches!(record_open(&conn, 999), Err(AppError::NotFound(_))));
+        assert!(matches!(
+            record_open(&conn, 999),
+            Err(AppError::NotFound(_))
+        ));
     }
 
     #[test]

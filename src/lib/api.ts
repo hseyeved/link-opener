@@ -1,12 +1,17 @@
 // The only module that calls `invoke`. Errors reject with the backend's message string.
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import type {
   Bookmark,
   BookmarkPatch,
   Browser,
   BrowserPrefs,
   DesktopSettings,
+  ExportSummary,
+  ImportMode,
+  ImportPreview,
+  ImportSummary,
   Folder,
   LaunchTarget,
   NewBookmark,
@@ -107,3 +112,32 @@ export const setAutostart = (enabled: boolean) => invoke<void>("set_autostart", 
 /** The tray menu, global shortcut or a second launch asking to open a view. */
 export const onOpenView = (handler: (view: "search" | "settings") => void): Promise<UnlistenFn> =>
   listen<"search" | "settings">("open-view", (e) => handler(e.payload));
+
+/** Native "save as" dialog; `null` if cancelled. */
+export const pickSavePath = (defaultPath: string, filter: { name: string; extensions: string[] }) =>
+  saveDialog({ defaultPath, filters: [filter] });
+
+/** Native "open" dialog for a backup or browser bookmarks file; `null` if cancelled. */
+export async function pickImportPath(): Promise<string | null> {
+  const path = await openDialog({
+    multiple: false,
+    directory: false,
+    filters: [
+      { name: "Backups and bookmark files", extensions: ["json", "html", "htm"] },
+      { name: "All files", extensions: ["*"] },
+    ],
+  });
+  return typeof path === "string" ? path : null;
+}
+
+/** Full backup: library, favicons and library settings, as JSON. */
+export const exportBackup = (path: string) => invoke<ExportSummary>("export_backup", { path });
+
+/** The library as a browser bookmarks file (HTML). */
+export const exportHtml = (path: string) => invoke<ExportSummary>("export_html", { path });
+
+export const inspectImport = (path: string) => invoke<ImportPreview>("inspect_import", { path });
+
+/** Browser files always merge, into a new top-level folder named `folderName`. */
+export const importFile = (path: string, mode: ImportMode, skipDuplicates: boolean, folderName: string | null) =>
+  invoke<ImportSummary>("import_file", { path, mode, skipDuplicates, folderName });

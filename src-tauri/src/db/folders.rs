@@ -99,7 +99,11 @@ pub fn delete(conn: &Connection, id: i64) -> AppResult<()> {
     tags::delete_unused(conn)
 }
 
-pub fn set_default_target(conn: &Connection, id: i64, target: Option<&LaunchTarget>) -> AppResult<Folder> {
+pub fn set_default_target(
+    conn: &Connection,
+    id: i64,
+    target: Option<&LaunchTarget>,
+) -> AppResult<Folder> {
     let changed = conn.execute(
         "UPDATE folders SET default_target = ?2 WHERE id = ?1",
         params![id, target_json(target)?],
@@ -112,7 +116,12 @@ pub fn set_default_target(conn: &Connection, id: i64, target: Option<&LaunchTarg
 
 /// Moves the folder under `parent_id` (`None` = top level) at `index` among its new
 /// siblings (`None` or past the end = last). Also reorders among the same siblings.
-pub fn move_to(conn: &Connection, id: i64, parent_id: Option<i64>, index: Option<usize>) -> AppResult<Folder> {
+pub fn move_to(
+    conn: &Connection,
+    id: i64,
+    parent_id: Option<i64>,
+    index: Option<usize>,
+) -> AppResult<Folder> {
     let folder = get(conn, id)?;
     if let Some(parent_id) = parent_id {
         if !exists(conn, parent_id)? {
@@ -124,12 +133,17 @@ pub fn move_to(conn: &Connection, id: i64, parent_id: Option<i64>, index: Option
     }
     let tx = conn.unchecked_transaction()?;
     let mut ids: Vec<i64> = tx
-        .prepare_cached("SELECT id FROM folders WHERE parent_id IS ?1 AND id != ?2 ORDER BY position, id")?
+        .prepare_cached(
+            "SELECT id FROM folders WHERE parent_id IS ?1 AND id != ?2 ORDER BY position, id",
+        )?
         .query_map(params![parent_id, id], |r| r.get(0))?
         .collect::<Result<_, _>>()?;
     ids.insert(index.unwrap_or(ids.len()).min(ids.len()), id);
     if parent_id != folder.parent_id {
-        tx.execute("UPDATE folders SET parent_id = ?2 WHERE id = ?1", params![id, parent_id])?;
+        tx.execute(
+            "UPDATE folders SET parent_id = ?2 WHERE id = ?1",
+            params![id, parent_id],
+        )?;
     }
     super::renumber(&tx, "folders", &ids)?;
     tx.commit()?;
@@ -166,7 +180,11 @@ mod tests {
     use crate::db::open_in_memory;
 
     fn new_bookmark(folder_id: Option<i64>, url: &str) -> NewBookmark {
-        NewBookmark { folder_id, url: url.into(), ..Default::default() }
+        NewBookmark {
+            folder_id,
+            url: url.into(),
+            ..Default::default()
+        }
     }
 
     fn names(conn: &Connection, parent_id: Option<i64>) -> Vec<String> {
@@ -208,10 +226,22 @@ mod tests {
         let a = create(&conn, None, "A").unwrap();
         let child = create(&conn, Some(a.id), "Child").unwrap();
         let grandchild = create(&conn, Some(child.id), "Grandchild").unwrap();
-        assert!(matches!(move_to(&conn, a.id, Some(a.id), None), Err(AppError::Invalid(_))));
-        assert!(matches!(move_to(&conn, a.id, Some(grandchild.id), None), Err(AppError::Invalid(_))));
-        assert!(matches!(move_to(&conn, a.id, Some(999), None), Err(AppError::NotFound(_))));
-        assert!(matches!(move_to(&conn, 999, None, None), Err(AppError::NotFound(_))));
+        assert!(matches!(
+            move_to(&conn, a.id, Some(a.id), None),
+            Err(AppError::Invalid(_))
+        ));
+        assert!(matches!(
+            move_to(&conn, a.id, Some(grandchild.id), None),
+            Err(AppError::Invalid(_))
+        ));
+        assert!(matches!(
+            move_to(&conn, a.id, Some(999), None),
+            Err(AppError::NotFound(_))
+        ));
+        assert!(matches!(
+            move_to(&conn, 999, None, None),
+            Err(AppError::NotFound(_))
+        ));
         // Moving a grandchild up is fine.
         move_to(&conn, grandchild.id, Some(a.id), Some(0)).unwrap();
         assert_eq!(names(&conn, Some(a.id)), ["Grandchild", "Child"]);
@@ -222,11 +252,23 @@ mod tests {
         let conn = open_in_memory().unwrap();
         let f = create(&conn, None, "F").unwrap();
         assert_eq!(f.default_target, None);
-        let target = LaunchTarget { browser_id: "edge".into(), profile_id: Some("Default".into()), private: false };
+        let target = LaunchTarget {
+            browser_id: "edge".into(),
+            profile_id: Some("Default".into()),
+            private: false,
+        };
         let f = set_default_target(&conn, f.id, Some(&target)).unwrap();
         assert_eq!(f.default_target, Some(target));
-        assert_eq!(set_default_target(&conn, f.id, None).unwrap().default_target, None);
-        assert!(matches!(set_default_target(&conn, 999, None), Err(AppError::NotFound(_))));
+        assert_eq!(
+            set_default_target(&conn, f.id, None)
+                .unwrap()
+                .default_target,
+            None
+        );
+        assert!(matches!(
+            set_default_target(&conn, 999, None),
+            Err(AppError::NotFound(_))
+        ));
     }
 
     #[test]
@@ -254,7 +296,10 @@ mod tests {
     #[test]
     fn rejects_empty_name() {
         let conn = open_in_memory().unwrap();
-        assert!(matches!(create(&conn, None, "   "), Err(AppError::Invalid(_))));
+        assert!(matches!(
+            create(&conn, None, "   "),
+            Err(AppError::Invalid(_))
+        ));
         let f = create(&conn, None, "Ok").unwrap();
         assert!(matches!(rename(&conn, f.id, ""), Err(AppError::Invalid(_))));
     }
@@ -273,7 +318,10 @@ mod tests {
         let conn = open_in_memory().unwrap();
         let f = create(&conn, None, "Old").unwrap();
         assert_eq!(rename(&conn, f.id, "New").unwrap().name, "New");
-        assert!(matches!(rename(&conn, 999, "X"), Err(AppError::NotFound(_))));
+        assert!(matches!(
+            rename(&conn, 999, "X"),
+            Err(AppError::NotFound(_))
+        ));
     }
 
     #[test]

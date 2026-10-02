@@ -20,7 +20,11 @@ pub struct ResolvedTarget {
 pub fn resolve(conn: &Connection, bookmark_id: i64) -> AppResult<Option<ResolvedTarget>> {
     let bookmark = bookmarks::get(conn, bookmark_id)?;
     if let Some(target) = bookmark.default_target {
-        return Ok(Some(ResolvedTarget { target, folder_id: None, folder_name: None }));
+        return Ok(Some(ResolvedTarget {
+            target,
+            folder_id: None,
+            folder_name: None,
+        }));
     }
     let Some(folder_id) = bookmark.folder_id else {
         return Ok(None);
@@ -38,7 +42,11 @@ pub fn resolve(conn: &Connection, bookmark_id: i64) -> AppResult<Option<Resolved
     )?;
     let found = stmt
         .query_map([folder_id], |r| {
-            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<String>>(2)?))
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<String>>(2)?,
+            ))
         })?
         .filter_map(|row| row.ok())
         .find_map(|(id, name, json)| {
@@ -58,11 +66,20 @@ mod tests {
     use crate::db::{folders, open_in_memory};
 
     fn target(browser: &str) -> LaunchTarget {
-        LaunchTarget { browser_id: browser.into(), profile_id: None, private: false }
+        LaunchTarget {
+            browser_id: browser.into(),
+            profile_id: None,
+            private: false,
+        }
     }
 
     fn add(conn: &Connection, folder_id: Option<i64>, default_target: Option<LaunchTarget>) -> i64 {
-        let new = NewBookmark { folder_id, url: "x.com".into(), default_target, ..Default::default() };
+        let new = NewBookmark {
+            folder_id,
+            url: "x.com".into(),
+            default_target,
+            ..Default::default()
+        };
         bookmarks::create(conn, new).unwrap().id
     }
 
@@ -82,20 +99,36 @@ mod tests {
 
         folders::set_default_target(&conn, top.id, Some(&target("top"))).unwrap();
         let r = resolve(&conn, in_leaf).unwrap().unwrap();
-        assert_eq!((r.target.browser_id.as_str(), r.folder_id, r.folder_name.as_deref()), ("top", Some(top.id), Some("Top")));
+        assert_eq!(
+            (
+                r.target.browser_id.as_str(),
+                r.folder_id,
+                r.folder_name.as_deref()
+            ),
+            ("top", Some(top.id), Some("Top"))
+        );
 
         // The nearest ancestor wins.
         folders::set_default_target(&conn, mid.id, Some(&target("mid"))).unwrap();
-        assert_eq!(resolve(&conn, in_leaf).unwrap().unwrap().target.browser_id, "mid");
+        assert_eq!(
+            resolve(&conn, in_leaf).unwrap().unwrap().target.browser_id,
+            "mid"
+        );
 
         // The bookmark's own default beats every folder.
         let r = resolve(&conn, own).unwrap().unwrap();
         assert_eq!((r.target.browser_id.as_str(), r.folder_id), ("own", None));
 
         // Clearing it falls back to the folders again.
-        let patch = BookmarkPatch { default_target: Some(None), ..Default::default() };
+        let patch = BookmarkPatch {
+            default_target: Some(None),
+            ..Default::default()
+        };
         bookmarks::update(&conn, own, patch).unwrap();
-        assert_eq!(resolve(&conn, own).unwrap().unwrap().target.browser_id, "mid");
+        assert_eq!(
+            resolve(&conn, own).unwrap().unwrap().target.browser_id,
+            "mid"
+        );
     }
 
     #[test]
@@ -104,9 +137,16 @@ mod tests {
         let top = folders::create(&conn, None, "Top").unwrap();
         let mid = folders::create(&conn, Some(top.id), "Mid").unwrap();
         folders::set_default_target(&conn, top.id, Some(&target("top"))).unwrap();
-        conn.execute("UPDATE folders SET default_target = 'garbage' WHERE id = ?1", [mid.id]).unwrap();
+        conn.execute(
+            "UPDATE folders SET default_target = 'garbage' WHERE id = ?1",
+            [mid.id],
+        )
+        .unwrap();
         let b = add(&conn, Some(mid.id), None);
         assert_eq!(resolve(&conn, b).unwrap().unwrap().target.browser_id, "top");
-        assert!(matches!(resolve(&conn, 999), Err(crate::error::AppError::NotFound(_))));
+        assert!(matches!(
+            resolve(&conn, 999),
+            Err(crate::error::AppError::NotFound(_))
+        ));
     }
 }

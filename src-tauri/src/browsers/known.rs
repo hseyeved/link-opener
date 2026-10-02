@@ -75,7 +75,12 @@ pub static KNOWN: &[Known] = &[
         private_flag: Some("--incognito"),
         idents: PerOs {
             windows: &["chromium\\application\\chrome.exe"],
-            linux: &["chromium", "chromium-browser", "chromium_chromium", "org.chromium.chromium"],
+            linux: &[
+                "chromium",
+                "chromium-browser",
+                "chromium_chromium",
+                "org.chromium.chromium",
+            ],
             macos: &["org.chromium.chromium"],
         },
         data_dirs: PerOs {
@@ -95,7 +100,11 @@ pub static KNOWN: &[Known] = &[
         private_flag: Some("--inprivate"),
         idents: PerOs {
             windows: &["msedge.exe"],
-            linux: &["microsoft-edge", "microsoft-edge-stable", "com.microsoft.edge"],
+            linux: &[
+                "microsoft-edge",
+                "microsoft-edge-stable",
+                "com.microsoft.edge",
+            ],
             macos: &["com.microsoft.edgemac"],
         },
         data_dirs: PerOs {
@@ -139,7 +148,10 @@ pub static KNOWN: &[Known] = &[
         },
         data_dirs: PerOs {
             windows: &["%LOCALAPPDATA%\\Vivaldi\\User Data"],
-            linux: &["$XDG_CONFIG/vivaldi", "~/.var/app/com.vivaldi.Vivaldi/config/vivaldi"],
+            linux: &[
+                "$XDG_CONFIG/vivaldi",
+                "~/.var/app/com.vivaldi.Vivaldi/config/vivaldi",
+            ],
             macos: &["~/Library/Application Support/Vivaldi"],
         },
     },
@@ -154,7 +166,11 @@ pub static KNOWN: &[Known] = &[
             linux: &["opera", "opera_opera", "com.opera.opera"],
             macos: &["com.operasoftware.opera"],
         },
-        data_dirs: PerOs { windows: NONE, linux: NONE, macos: NONE },
+        data_dirs: PerOs {
+            windows: NONE,
+            linux: NONE,
+            macos: NONE,
+        },
     },
     Known {
         id: "opera-gx",
@@ -166,7 +182,11 @@ pub static KNOWN: &[Known] = &[
             linux: NONE,
             macos: &["com.operasoftware.operagx"],
         },
-        data_dirs: PerOs { windows: NONE, linux: NONE, macos: NONE },
+        data_dirs: PerOs {
+            windows: NONE,
+            linux: NONE,
+            macos: NONE,
+        },
     },
     Known {
         id: "blisk",
@@ -191,7 +211,12 @@ pub static KNOWN: &[Known] = &[
         private_flag: None,
         idents: PerOs {
             windows: &["firefox.exe"],
-            linux: &["firefox", "firefox-esr", "firefox_firefox", "org.mozilla.firefox"],
+            linux: &[
+                "firefox",
+                "firefox-esr",
+                "firefox_firefox",
+                "org.mozilla.firefox",
+            ],
             macos: &["org.mozilla.firefox"],
         },
         data_dirs: PerOs {
@@ -212,7 +237,10 @@ pub static KNOWN: &[Known] = &[
         idents: PerOs {
             windows: &["librewolf.exe"],
             linux: &["librewolf", "io.gitlab.librewolf-community"],
-            macos: &["io.gitlab.librewolf-community.librewolf", "org.mozilla.librewolf"],
+            macos: &[
+                "io.gitlab.librewolf-community.librewolf",
+                "org.mozilla.librewolf",
+            ],
         },
         data_dirs: PerOs {
             windows: &["%APPDATA%\\librewolf"],
@@ -260,8 +288,16 @@ pub static KNOWN: &[Known] = &[
         name: "Safari",
         kind: BrowserKind::Safari,
         private_flag: None,
-        idents: PerOs { windows: NONE, linux: NONE, macos: &["com.apple.safari"] },
-        data_dirs: PerOs { windows: NONE, linux: NONE, macos: NONE },
+        idents: PerOs {
+            windows: NONE,
+            linux: NONE,
+            macos: &["com.apple.safari"],
+        },
+        data_dirs: PerOs {
+            windows: NONE,
+            linux: NONE,
+            macos: NONE,
+        },
     },
 ];
 
@@ -276,15 +312,48 @@ mod tests {
     #[test]
     fn windows_paths() {
         let w = Os::Windows;
-        assert_eq!(id(w, r"C:\Program Files\Google\Chrome\Application\chrome.exe"), Some("chrome"));
-        assert_eq!(id(w, r"C:\Users\me\AppData\Local\Chromium\Application\chrome.exe"), Some("chromium"));
-        assert_eq!(id(w, r"C:\Program Files (x86)\Microsoft\Edge\Application\MSEDGE.EXE"), Some("edge"));
-        assert_eq!(id(w, r"C:\Program Files\Mozilla Firefox\firefox.exe"), Some("firefox"));
-        assert_eq!(id(w, r"C:\Users\me\AppData\Local\Programs\Opera GX\launcher.exe"), Some("opera-gx"));
-        assert_eq!(id(w, r"C:\Users\me\AppData\Local\Programs\Opera\launcher.exe"), Some("opera"));
+        assert_eq!(
+            id(w, r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
+            Some("chrome")
+        );
+        assert_eq!(
+            id(
+                w,
+                r"C:\Users\me\AppData\Local\Chromium\Application\chrome.exe"
+            ),
+            Some("chromium")
+        );
+        assert_eq!(
+            id(
+                w,
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\MSEDGE.EXE"
+            ),
+            Some("edge")
+        );
+        assert_eq!(
+            id(w, r"C:\Program Files\Mozilla Firefox\firefox.exe"),
+            Some("firefox")
+        );
+        assert_eq!(
+            id(
+                w,
+                r"C:\Users\me\AppData\Local\Programs\Opera GX\launcher.exe"
+            ),
+            Some("opera-gx")
+        );
+        assert_eq!(
+            id(w, r"C:\Users\me\AppData\Local\Programs\Opera\launcher.exe"),
+            Some("opera")
+        );
         // Suffixes match whole components only.
         assert_eq!(id(w, r"C:\tools\notfirefox.exe"), None);
-        assert_eq!(id(w, r"C:\Program Files\Google\Chrome Beta\Application\chrome.exe"), None);
+        assert_eq!(
+            id(
+                w,
+                r"C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
+            ),
+            None
+        );
     }
 
     #[test]

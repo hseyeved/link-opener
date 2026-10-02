@@ -12,8 +12,9 @@ pub const MAX_LIMIT: usize = 200;
 /// Matching bookmarks, best first. An empty query returns recently opened bookmarks.
 pub fn search(conn: &Connection, query: &str, limit: usize) -> AppResult<Vec<Bookmark>> {
     // The trigram tokenizer can't match terms shorter than 3 characters; those use LIKE.
-    let (fts_terms, short_terms): (Vec<&str>, Vec<&str>) =
-        query.split_whitespace().partition(|t| t.chars().count() >= 3);
+    let (fts_terms, short_terms): (Vec<&str>, Vec<&str>) = query
+        .split_whitespace()
+        .partition(|t| t.chars().count() >= 3);
 
     let cols = COLUMNS;
     let mut params: Vec<Value> = Vec::new();
@@ -67,7 +68,9 @@ fn match_expr(terms: &[&str]) -> String {
 }
 
 fn escape_like(term: &str) -> String {
-    term.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+    term.replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
 }
 
 #[cfg(test)]
@@ -80,17 +83,34 @@ mod tests {
         add_in(conn, None, title, url, notes)
     }
 
-    fn add_in(conn: &Connection, folder_id: Option<i64>, title: &str, url: &str, notes: &str) -> Bookmark {
-        let new = NewBookmark { folder_id, title: title.into(), url: url.into(), notes: notes.into(), ..Default::default() };
+    fn add_in(
+        conn: &Connection,
+        folder_id: Option<i64>,
+        title: &str,
+        url: &str,
+        notes: &str,
+    ) -> Bookmark {
+        let new = NewBookmark {
+            folder_id,
+            title: title.into(),
+            url: url.into(),
+            notes: notes.into(),
+            ..Default::default()
+        };
         bookmarks::create(conn, new).unwrap()
     }
 
     fn titles(conn: &Connection, query: &str) -> Vec<String> {
-        search(conn, query, 50).unwrap().into_iter().map(|b| b.title).collect()
+        search(conn, query, 50)
+            .unwrap()
+            .into_iter()
+            .map(|b| b.title)
+            .collect()
     }
 
     fn tag(conn: &Connection, bookmark_id: i64, name: &str) -> i64 {
-        conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?1)", [name]).unwrap();
+        conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?1)", [name])
+            .unwrap();
         let tag_id: i64 = conn
             .query_row("SELECT id FROM tags WHERE name = ?1", [name], |r| r.get(0))
             .unwrap();
@@ -170,13 +190,23 @@ mod tests {
     fn index_follows_updates_and_deletes() {
         let conn = open_in_memory().unwrap();
         let b = add(&conn, "Before", "x.com", "");
-        bookmarks::update(&conn, b.id, BookmarkPatch { title: Some("After".into()), ..Default::default() }).unwrap();
+        bookmarks::update(
+            &conn,
+            b.id,
+            BookmarkPatch {
+                title: Some("After".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert!(titles(&conn, "before").is_empty());
         assert_eq!(titles(&conn, "after"), ["After"]);
 
         bookmarks::delete(&conn, b.id).unwrap();
         assert!(titles(&conn, "after").is_empty());
-        let fts_rows: i64 = conn.query_row("SELECT COUNT(*) FROM bookmarks_fts", [], |r| r.get(0)).unwrap();
+        let fts_rows: i64 = conn
+            .query_row("SELECT COUNT(*) FROM bookmarks_fts", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(fts_rows, 0);
     }
 
@@ -187,7 +217,9 @@ mod tests {
         add_in(&conn, Some(f.id), "Inside", "x.com", "");
         folders::delete(&conn, f.id).unwrap();
         assert!(titles(&conn, "inside").is_empty());
-        let fts_rows: i64 = conn.query_row("SELECT COUNT(*) FROM bookmarks_fts", [], |r| r.get(0)).unwrap();
+        let fts_rows: i64 = conn
+            .query_row("SELECT COUNT(*) FROM bookmarks_fts", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(fts_rows, 0);
     }
 
@@ -200,11 +232,13 @@ mod tests {
         assert_eq!(titles(&conn, "research"), ["Plain"]);
         assert_eq!(titles(&conn, "ml"), ["Plain"]); // short term: LIKE on tag names
 
-        conn.execute("UPDATE tags SET name = 'reading' WHERE id = ?1", [tag_id]).unwrap();
+        conn.execute("UPDATE tags SET name = 'reading' WHERE id = ?1", [tag_id])
+            .unwrap();
         assert!(titles(&conn, "research").is_empty());
         assert_eq!(titles(&conn, "reading"), ["Plain"]);
 
-        conn.execute("DELETE FROM bookmark_tags WHERE tag_id = ?1", [tag_id]).unwrap();
+        conn.execute("DELETE FROM bookmark_tags WHERE tag_id = ?1", [tag_id])
+            .unwrap();
         assert!(titles(&conn, "reading").is_empty());
     }
 

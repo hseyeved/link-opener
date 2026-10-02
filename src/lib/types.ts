@@ -137,3 +137,27 @@ export interface DesktopSettings {
   /** Path of the app's executable, for a desktop-environment shortcut. */
   executable: string;
 }
+
+export interface ExportSummary {
+  folders: number;
+  bookmarks: number;
+}
+
+export interface ImportPreview {
+  /** "backup" = Link Opener backup; "browser" = a browser's bookmarks.html. */
+  kind: "backup" | "browser";
+  folders: number;
+  bookmarks: number;
+  /** When the backup was made (unix ms). */
+  exportedAt: number | null;
+}
+
+/** "merge" adds to the library; "replace" deletes everything first (backups only). */
+export type ImportMode = "merge" | "replace";
+
+export interface ImportSummary {
+  foldersCreated: number;
+  bookmarksAdded: number;
+  duplicatesSkipped: number;
+  invalidSkipped: number;
+}

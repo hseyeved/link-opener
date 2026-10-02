@@ -65,7 +65,13 @@ pub struct Profile {
 impl Profile {
     pub fn new(id: impl Into<String>, name: impl Into<String>, email: Option<String>) -> Self {
         let name = name.into();
-        Self { id: id.into(), default_name: name.clone(), name, email, hidden: false }
+        Self {
+            id: id.into(),
+            default_name: name.clone(),
+            name,
+            email,
+            hidden: false,
+        }
     }
 }
 
@@ -167,7 +173,11 @@ fn finalize(found: Vec<Detected>, os: Os) -> Vec<Browser> {
             // Two installs of one family (e.g. native + Flatpak) get "firefox", "firefox-2".
             let n = used.entry(base_id.clone()).or_default();
             *n += 1;
-            let id = if *n == 1 { base_id } else { format!("{base_id}-{n}") };
+            let id = if *n == 1 {
+                base_id
+            } else {
+                format!("{base_id}-{n}")
+            };
 
             let kind = d.known.map_or(BrowserKind::Other, |k| k.kind);
             let profiles = match d.known {
@@ -177,7 +187,9 @@ fn finalize(found: Vec<Detected>, os: Os) -> Vec<Browser> {
             let private_flag = d.known.and_then(|k| k.private_flag).map(str::to_string);
             // Prefer the name the OS reports; else the known browser's name; else the raw id.
             let name = match d.name.trim() {
-                "" => d.known.map_or_else(|| d.source_id.clone(), |k| k.name.to_string()),
+                "" => d
+                    .known
+                    .map_or_else(|| d.source_id.clone(), |k| k.name.to_string()),
                 name => name.to_string(),
             };
             Browser::new(id, name, kind, profiles, d.exec, private_flag)
@@ -189,14 +201,26 @@ fn finalize(found: Vec<Detected>, os: Os) -> Vec<Browser> {
 
 /// Existing candidate data dirs, those belonging to this install (e.g. its Flatpak id) first.
 fn data_dirs(known: &known::Known, os: Os, source_id: &str) -> Vec<PathBuf> {
-    let mut dirs: Vec<String> = known.data_dirs.get(os).iter().map(|s| s.to_string()).collect();
+    let mut dirs: Vec<String> = known
+        .data_dirs
+        .get(os)
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     dirs.sort_by_key(|d| !d.contains(source_id));
-    dirs.iter().filter_map(|d| expand(d)).filter(|p| p.is_dir()).collect()
+    dirs.iter()
+        .filter_map(|d| expand(d))
+        .filter(|p| p.is_dir())
+        .collect()
 }
 
 /// Expands a leading `~/`, `$XDG_CONFIG/` or `%VAR%`.
 fn expand(path: &str) -> Option<PathBuf> {
-    let env = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from);
+    let env = |name: &str| {
+        std::env::var_os(name)
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+    };
     if let Some(rest) = path.strip_prefix("~/") {
         return Some(env("HOME")?.join(rest));
     }
@@ -208,7 +232,11 @@ fn expand(path: &str) -> Option<PathBuf> {
         let (var, rest) = rest.split_once('%')?;
         let rest = rest.trim_start_matches(['\\', '/']);
         let base = env(var)?;
-        return Some(if rest.is_empty() { base } else { base.join(rest) });
+        return Some(if rest.is_empty() {
+            base
+        } else {
+            base.join(rest)
+        });
     }
     Some(PathBuf::from(path))
 }
@@ -223,7 +251,11 @@ fn slug(s: &str) -> String {
         }
     }
     let out = out.trim_matches('-');
-    if out.is_empty() { "browser".into() } else { out.into() }
+    if out.is_empty() {
+        "browser".into()
+    } else {
+        out.into()
+    }
 }
 
 #[cfg(test)]
@@ -245,7 +277,12 @@ mod tests {
         let browsers = finalize(
             vec![
                 detected("Firefox", "firefox", os, "firefox"),
-                detected("Firefox (Flatpak)", "org.mozilla.firefox", os, "org.mozilla.firefox"),
+                detected(
+                    "Firefox (Flatpak)",
+                    "org.mozilla.firefox",
+                    os,
+                    "org.mozilla.firefox",
+                ),
                 detected("Some Viewer", "Some.Viewer App", os, "some.viewer app"),
                 detected("Brave", "brave-browser", os, "brave-browser"),
             ],
@@ -272,7 +309,10 @@ mod tests {
     #[ignore]
     fn print_detected() {
         for b in detect() {
-            println!("{} [{}] {:?} {:?} private={}", b.name, b.id, b.kind, b.exec, b.supports_private);
+            println!(
+                "{} [{}] {:?} {:?} private={}",
+                b.name, b.id, b.kind, b.exec, b.supports_private
+            );
             for p in &b.profiles {
                 println!("    {} = {} {:?}", p.id, p.name, p.email);
             }

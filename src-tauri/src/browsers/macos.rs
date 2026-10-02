@@ -33,11 +33,17 @@ pub fn detect_in(dirs: &[PathBuf]) -> Vec<Detected> {
             let Some(info) = parse_info_plist(&bytes) else {
                 continue;
             };
-            if !info.handles_https || info.bundle_id.eq_ignore_ascii_case("com.devistry.linkopener") {
+            if !info.handles_https
+                || info
+                    .bundle_id
+                    .eq_ignore_ascii_case("com.devistry.linkopener")
+            {
                 continue;
             }
             let name = info.name.unwrap_or_else(|| {
-                app.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()
+                app.file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default()
             });
             found.push(Detected {
                 name,
@@ -75,7 +81,10 @@ pub fn parse_info_plist(bytes: &[u8]) -> Option<AppInfo> {
         .flatten()
         .filter_map(|t| t.as_dictionary()?.get("CFBundleURLSchemes")?.as_array())
         .flatten()
-        .any(|s| s.as_string().is_some_and(|s| s.eq_ignore_ascii_case("https")));
+        .any(|s| {
+            s.as_string()
+                .is_some_and(|s| s.eq_ignore_ascii_case("https"))
+        });
     Some(AppInfo {
         bundle_id: text("CFBundleIdentifier")?,
         name: text("CFBundleDisplayName").or_else(|| text("CFBundleName")),
@@ -123,7 +132,11 @@ mod tests {
                 handles_https: true,
             })
         );
-        assert!(!parse_info_plist(NOTES_PLIST.as_bytes()).unwrap().handles_https);
+        assert!(
+            !parse_info_plist(NOTES_PLIST.as_bytes())
+                .unwrap()
+                .handles_https
+        );
         assert_eq!(parse_info_plist(b"garbage"), None);
     }
 
@@ -132,13 +145,19 @@ mod tests {
         let value = Value::from_reader(std::io::Cursor::new(CHROME_PLIST.as_bytes())).unwrap();
         let mut binary = Vec::new();
         value.to_writer_binary(&mut binary).unwrap();
-        assert_eq!(parse_info_plist(&binary).unwrap().bundle_id, "com.google.Chrome");
+        assert_eq!(
+            parse_info_plist(&binary).unwrap().bundle_id,
+            "com.google.Chrome"
+        );
     }
 
     #[test]
     fn detect_in_dirs() {
         let apps = tempfile::tempdir().unwrap();
-        for (app, plist) in [("Google Chrome.app", CHROME_PLIST), ("Notes.app", NOTES_PLIST)] {
+        for (app, plist) in [
+            ("Google Chrome.app", CHROME_PLIST),
+            ("Notes.app", NOTES_PLIST),
+        ] {
             let contents = apps.path().join(app).join("Contents");
             fs::create_dir_all(&contents).unwrap();
             fs::write(contents.join("Info.plist"), plist).unwrap();

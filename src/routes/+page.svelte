@@ -9,34 +9,29 @@
   import FolderTree from "$lib/components/FolderTree.svelte";
   import Menu from "$lib/components/Menu.svelte";
   import MoveDialog from "$lib/components/MoveDialog.svelte";
+  import ImportDialog from "$lib/components/ImportDialog.svelte";
   import Settings from "$lib/components/Settings.svelte";
   import * as api from "$lib/api";
+  import { backUp, count, exportHtml, startImport } from "$lib/data";
   import { app } from "$lib/state.svelte";
   import { ui } from "$lib/ui.svelte";
 
   const searchShortcut = navigator.userAgent.includes("Mac") ? "⌘K" : "Ctrl K";
 
-  /** Short-lived status text in the toolbar. */
-  let notice = $state<string | null>(null);
-  let noticeTimer: ReturnType<typeof setTimeout> | undefined;
-
-  function showNotice(text: string, ms = 4000) {
-    clearTimeout(noticeTimer);
-    notice = text;
-    noticeTimer = setTimeout(() => (notice = null), ms);
-  }
-
   async function fetchMissingIcons() {
-    showNotice("Fetching icons…", 120_000);
+    ui.notify("Fetching icons…", 120_000);
     const ok = await app.run(async () => {
       const found = await api.fetchMissingFavicons();
       await app.reloadBookmarks();
-      showNotice(found === 1 ? "Fetched 1 icon." : `Fetched ${found} icons.`);
+      ui.notify(`Fetched ${count(found, "icon")}.`);
     });
-    if (!ok) notice = null;
+    if (!ok) ui.notify(null);
   }
 
   const toolbarMenu = [
+    { label: "Import…", onselect: startImport },
+    { label: "Back up…", onselect: backUp },
+    { label: "Export for browsers…", onselect: exportHtml },
     { label: "Fetch missing icons", onselect: fetchMissingIcons },
     { label: "Browsers…", onselect: () => (ui.browsersOpen = true) },
     { label: "Settings…", onselect: () => (ui.settingsOpen = true) },
@@ -82,8 +77,8 @@
   <main class="main">
     <header class="toolbar">
       <h1>{app.selectedFolder?.name ?? app.unfiledName}</h1>
-      {#if notice}
-        <span class="notice" role="status">{notice}</span>
+      {#if ui.notice}
+        <span class="notice" role="status">{ui.notice}</span>
       {/if}
       <div class="toolbar-actions">
         <button class="search" onclick={() => (ui.searching = true)} title="Search bookmarks">
@@ -126,6 +121,10 @@
 
 {#if ui.moving}
   <MoveDialog item={ui.moving} onclose={() => (ui.moving = null)} />
+{/if}
+
+{#if ui.importing}
+  <ImportDialog path={ui.importing.path} preview={ui.importing.preview} onclose={() => (ui.importing = null)} />
 {/if}
 
 {#if ui.browsersOpen}

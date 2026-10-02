@@ -3,6 +3,7 @@
   import * as api from "$lib/api";
   import { app, errorMessage } from "$lib/state.svelte";
   import type { DesktopSettings } from "$lib/types";
+  import { backUp, exportHtml, startImport } from "$lib/data";
   import { ui } from "$lib/ui.svelte";
   import ShortcutRecorder from "./ShortcutRecorder.svelte";
 
@@ -160,6 +161,19 @@
             <small>Shift+click (or Shift+Enter) shows the picker anyway.</small>
           </span>
         </label>
+      </section>
+
+      <section>
+        <h3>Your data</h3>
+        <p class="muted">
+          A backup holds your folders, bookmarks, tags, notes, icons and default browsers. Import restores a
+          backup, or brings in bookmarks exported from Chrome, Edge, Firefox or Safari.
+        </p>
+        <div class="row">
+          <button onclick={backUp}>Back up…</button>
+          <button onclick={startImport}>Import…</button>
+          <button onclick={exportHtml} title="A bookmarks.html file any browser can import">Export for browsers…</button>
+        </div>
       </section>
 
       {#if error}

@@ -23,7 +23,12 @@ pub fn detect() -> Vec<Detected> {
         .ok()
         .filter(|v| !v.is_empty())
         .unwrap_or_else(|| "/usr/local/share:/usr/share".into());
-    dirs.extend(data_dirs.split(':').filter(|d| !d.is_empty()).map(|d| Path::new(d).join("applications")));
+    dirs.extend(
+        data_dirs
+            .split(':')
+            .filter(|d| !d.is_empty())
+            .map(|d| Path::new(d).join("applications")),
+    );
     dirs.push("/var/lib/flatpak/exports/share/applications".into());
     dirs.push("/var/lib/snapd/desktop/applications".into());
     detect_in(&dirs)
@@ -113,7 +118,9 @@ pub fn parse_desktop_entry(text: &str) -> Option<DesktopEntry> {
     Some(DesktopEntry {
         name: name?,
         exec: exec?,
-        handles_https: mime.split(';').any(|m| m.trim() == "x-scheme-handler/https"),
+        handles_https: mime
+            .split(';')
+            .any(|m| m.trim() == "x-scheme-handler/https"),
     })
 }
 
@@ -199,7 +206,10 @@ Exec=/usr/bin/google-chrome-stable --incognito
 
     #[test]
     fn exec_lines() {
-        assert_eq!(parse_exec("/usr/bin/google-chrome-stable %U"), ["/usr/bin/google-chrome-stable"]);
+        assert_eq!(
+            parse_exec("/usr/bin/google-chrome-stable %U"),
+            ["/usr/bin/google-chrome-stable"]
+        );
         assert_eq!(
             parse_exec("/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=firefox --file-forwarding org.mozilla.firefox @@u %u @@"),
             ["/usr/bin/flatpak", "run", "--branch=stable", "--arch=x86_64", "--command=firefox", "--file-forwarding", "org.mozilla.firefox"]
@@ -222,16 +232,34 @@ Exec=/usr/bin/google-chrome-stable --incognito
             "org.mozilla.firefox.desktop",
             "[Desktop Entry]\nName=Firefox\nExec=/usr/bin/flatpak run org.mozilla.firefox @@u %u @@\nType=Application\nMimeType=x-scheme-handler/https;\n",
         );
-        write(system.path(), "editor.desktop", "[Desktop Entry]\nName=Editor\nExec=ed %F\nType=Application\nMimeType=text/plain;\n");
+        write(
+            system.path(),
+            "editor.desktop",
+            "[Desktop Entry]\nName=Editor\nExec=ed %F\nType=Application\nMimeType=text/plain;\n",
+        );
         // The user's copy of the Chrome entry hides it.
-        write(user.path(), "google-chrome.desktop", "[Desktop Entry]\nName=Chrome\nExec=x\nType=Application\nHidden=true\n");
+        write(
+            user.path(),
+            "google-chrome.desktop",
+            "[Desktop Entry]\nName=Chrome\nExec=x\nType=Application\nHidden=true\n",
+        );
 
-        let found = detect_in(&[user.path().into(), system.path().into(), "/nonexistent".into()]);
+        let found = detect_in(&[
+            user.path().into(),
+            system.path().into(),
+            "/nonexistent".into(),
+        ]);
         let summary: Vec<_> = found
             .iter()
             .map(|d| (d.source_id.as_str(), d.name.as_str(), d.known.map(|k| k.id)))
             .collect();
-        assert_eq!(summary, [("org.mozilla.firefox", "Firefox", Some("firefox"))]);
-        assert_eq!(found[0].exec, ["/usr/bin/flatpak", "run", "org.mozilla.firefox"]);
+        assert_eq!(
+            summary,
+            [("org.mozilla.firefox", "Firefox", Some("firefox"))]
+        );
+        assert_eq!(
+            found[0].exec,
+            ["/usr/bin/flatpak", "run", "org.mozilla.firefox"]
+        );
     }
 }

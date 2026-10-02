@@ -12,6 +12,8 @@ use crate::db::{settings, Db};
 use crate::error::{AppError, AppResult};
 use crate::metadata::{Fetcher, PageMeta};
 use crate::shortcut::{self, ActiveShortcut};
+use crate::transfer::{self, ImportMode, ImportSource, ImportSummary};
+use std::path::Path;
 
 #[tauri::command]
 pub fn list_folders(db: State<'_, Db>) -> AppResult<Vec<Folder>> {
@@ -112,7 +114,13 @@ pub async fn open_url(
         .iter()
         .find(|b| b.id == target.browser_id)
         .ok_or(AppError::NotFound("browser"))?;
-    let cmd = launch::build(browser, target.profile_id.as_deref(), target.private, &url, Os::current())?;
+    let cmd = launch::build(
+        browser,
+        target.profile_id.as_deref(),
+        target.private,
+        &url,
+        Os::current(),
+    )?;
     launch::spawn(&cmd, &browser.name)?;
 
     let conn = db.conn();
@@ -160,7 +168,11 @@ pub fn move_folder(
 }
 
 #[tauri::command]
-pub fn set_folder_target(db: State<'_, Db>, id: i64, target: Option<LaunchTarget>) -> AppResult<Folder> {
+pub fn set_folder_target(
+    db: State<'_, Db>,
+    id: i64,
+    target: Option<LaunchTarget>,
+) -> AppResult<Folder> {
     folders::set_default_target(&db.conn(), id, target.as_ref())
 }
 
@@ -191,13 +203,21 @@ pub async fn refresh_metadata(
 ) -> AppResult<Bookmark> {
     let url = bookmarks::get(&db.conn(), bookmark_id)?.url;
     let meta = fetcher.fetch(&url).await?;
-    bookmarks::apply_metadata(&db.conn(), bookmark_id, meta.title.as_deref(), meta.favicon.as_deref())
+    bookmarks::apply_metadata(
+        &db.conn(),
+        bookmark_id,
+        meta.title.as_deref(),
+        meta.favicon.as_deref(),
+    )
 }
 
 /// Fetches icons (and empty titles) for every web bookmark without an icon, a few at a time.
 /// Returns how many icons were found.
 #[tauri::command]
-pub async fn fetch_missing_favicons(db: State<'_, Db>, fetcher: State<'_, Fetcher>) -> AppResult<usize> {
+pub async fn fetch_missing_favicons(
+    db: State<'_, Db>,
+    fetcher: State<'_, Fetcher>,
+) -> AppResult<usize> {
     const CONCURRENT: usize = 4;
     let pending = bookmarks::missing_favicons(&db.conn())?;
     let mut found = 0;
@@ -212,12 +232,19 @@ pub async fn fetch_missing_favicons(db: State<'_, Db>, fetcher: State<'_, Fetche
             .collect();
         for task in tasks {
             // One site failing doesn't stop the rest.
-            let Ok((id, Ok(meta))) = task.await else { continue };
+            let Ok((id, Ok(meta))) = task.await else {
+                continue;
+            };
             if meta.favicon.is_some() {
                 found += 1;
             }
             // The bookmark may have been deleted meanwhile.
-            let _ = bookmarks::apply_metadata(&db.conn(), id, meta.title.as_deref(), meta.favicon.as_deref());
+            let _ = bookmarks::apply_metadata(
+                &db.conn(),
+                id,
+                meta.title.as_deref(),
+                meta.favicon.as_deref(),
+            );
         }
     }
     Ok(found)
@@ -246,7 +273,9 @@ pub struct DesktopSettings {
 
 pub fn close_to_tray<R: Runtime>(app: &AppHandle<R>) -> bool {
     let db = app.state::<Db>();
-    let value = settings::get(&db.conn(), settings::CLOSE_TO_TRAY).ok().flatten();
+    let value = settings::get(&db.conn(), settings::CLOSE_TO_TRAY)
+        .ok()
+        .flatten();
     value.as_deref() != Some("false")
 }
 
@@ -254,10 +283,9 @@ pub fn close_to_tray<R: Runtime>(app: &AppHandle<R>) -> bool {
 pub fn get_desktop_settings(app: AppHandle, db: State<'_, Db>) -> AppResult<DesktopSettings> {
     let global_shortcut = settings::get(&db.conn(), settings::GLOBAL_SHORTCUT)?
         .unwrap_or_else(|| shortcut::DEFAULT.to_string());
-    let autostart = app
-        .autolaunch()
-        .is_enabled()
-        .map_err(|e| AppError::Invalid(format!("couldn't read the launch-at-login setting: {e}")))?;
+    let autostart = app.autolaunch().is_enabled().map_err(|e| {
+        AppError::Invalid(format!("couldn't read the launch-at-login setting: {e}"))
+    })?;
     let wayland = cfg!(target_os = "linux")
         && (std::env::var_os("WAYLAND_DISPLAY").is_some()
             || std::env::var("XDG_SESSION_TYPE").is_ok_and(|t| t == "wayland"));
@@ -275,7 +303,11 @@ pub fn get_desktop_settings(app: AppHandle, db: State<'_, Db>) -> AppResult<Desk
 
 /// Registers and saves the global shortcut ("" = none). Nothing is saved if it can't be registered.
 #[tauri::command]
-pub fn set_global_shortcut(app: AppHandle, db: State<'_, Db>, shortcut: String) -> AppResult<DesktopSettings> {
+pub fn set_global_shortcut(
+    app: AppHandle,
+    db: State<'_, Db>,
+    shortcut: String,
+) -> AppResult<DesktopSettings> {
     let shortcut = shortcut.trim().to_string();
     shortcut::apply(&app, Some(&shortcut))?;
     settings::set(&db.conn(), settings::GLOBAL_SHORTCUT, &shortcut)?;
@@ -284,12 +316,133 @@ pub fn set_global_shortcut(app: AppHandle, db: State<'_, Db>, shortcut: String) 
 
 #[tauri::command]
 pub fn set_close_to_tray(db: State<'_, Db>, enabled: bool) -> AppResult<()> {
-    settings::set(&db.conn(), settings::CLOSE_TO_TRAY, if enabled { "true" } else { "false" })
+    settings::set(
+        &db.conn(),
+        settings::CLOSE_TO_TRAY,
+        if enabled { "true" } else { "false" },
+    )
 }
 
 #[tauri::command]
 pub fn set_autostart(app: AppHandle, enabled: bool) -> AppResult<()> {
     let manager = app.autolaunch();
-    let result = if enabled { manager.enable() } else { manager.disable() };
+    let result = if enabled {
+        manager.enable()
+    } else {
+        manager.disable()
+    };
     result.map_err(|e| AppError::Invalid(format!("couldn't change launch at login: {e}")))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportSummary {
+    pub folders: usize,
+    pub bookmarks: usize,
+}
+
+/// Writes a full backup (library, favicons, library settings) as JSON.
+#[tauri::command]
+pub async fn export_backup(
+    db: State<'_, Db>,
+    fetcher: State<'_, Fetcher>,
+    path: String,
+) -> AppResult<ExportSummary> {
+    let backup = transfer::create_backup(&db.conn(), &fetcher.favicon_dir)?;
+    transfer::write_backup(Path::new(&path), &backup)?;
+    Ok(ExportSummary {
+        folders: backup.library.folders.len(),
+        bookmarks: backup.library.bookmarks.len(),
+    })
+}
+
+/// Writes the library as a browser bookmarks file (HTML) that any browser can import.
+#[tauri::command]
+pub async fn export_html(db: State<'_, Db>, path: String) -> AppResult<ExportSummary> {
+    let library = transfer::read_library(&db.conn())?;
+    transfer::write_atomically(Path::new(&path), transfer::html::write(&library).as_bytes())?;
+    Ok(ExportSummary {
+        folders: library.folders.len(),
+        bookmarks: library.bookmarks.len(),
+    })
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportPreview {
+    /// "backup" (Link Opener) or "browser" (bookmarks.html).
+    pub kind: &'static str,
+    pub folders: usize,
+    pub bookmarks: usize,
+    /// When the backup was made.
+    pub exported_at: Option<i64>,
+}
+
+/// What a file holds, before importing it.
+#[tauri::command]
+pub async fn inspect_import(path: String) -> AppResult<ImportPreview> {
+    let source = transfer::read_file(Path::new(&path))?;
+    let lib = source.library();
+    let (kind, exported_at) = match &source {
+        ImportSource::Backup(b) => ("backup", Some(b.exported_at)),
+        ImportSource::Browser(_) => ("browser", None),
+    };
+    Ok(ImportPreview {
+        kind,
+        folders: lib.folders.len(),
+        bookmarks: lib.bookmarks.len(),
+        exported_at,
+    })
+}
+
+/// Imports a backup or browser bookmarks file. Browser files always merge, inside a new
+/// top-level folder named `folder_name`. Replacing first saves a backup of the current
+/// library in `<app data>/backups/`.
+#[tauri::command]
+pub async fn import_file(
+    app: AppHandle,
+    db: State<'_, Db>,
+    fetcher: State<'_, Fetcher>,
+    path: String,
+    mode: ImportMode,
+    skip_duplicates: bool,
+    folder_name: Option<String>,
+) -> AppResult<ImportSummary> {
+    let mut source = transfer::read_file(Path::new(&path))?;
+    let is_browser = matches!(source, ImportSource::Browser(_));
+    let mode = if is_browser { ImportMode::Merge } else { mode };
+
+    if mode == ImportMode::Replace {
+        let dir = app
+            .path()
+            .app_data_dir()
+            .map_err(|e| AppError::Invalid(e.to_string()))?
+            .join("backups");
+        std::fs::create_dir_all(&dir)?;
+        let safety = transfer::create_backup(&db.conn(), &fetcher.favicon_dir)?;
+        transfer::write_backup(
+            &dir.join(format!("before-restore-{}.json", safety.exported_at)),
+            &safety,
+        )?;
+    }
+
+    transfer::store_icons(&mut source, &fetcher.favicon_dir)?;
+    let wrap = is_browser.then(|| {
+        folder_name
+            .map(|n| n.trim().to_string())
+            .filter(|n| !n.is_empty())
+            .unwrap_or_else(|| "Imported bookmarks".into())
+    });
+    let conn = db.conn();
+    let summary = transfer::import_library(
+        &conn,
+        source.library(),
+        mode,
+        skip_duplicates,
+        wrap.as_deref(),
+    )?;
+    if let (ImportMode::Replace, ImportSource::Backup(backup)) = (mode, &source) {
+        transfer::restore_settings(&conn, backup)?;
+    }
+    Ok(summary)
 }

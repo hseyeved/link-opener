@@ -78,11 +78,17 @@ pub fn apply(detected: Vec<Browser>, prefs: &BrowserPrefs) -> Vec<Browser> {
         }
     }
 
-    let rank: HashMap<&str, usize> = prefs.order.iter().enumerate().map(|(i, id)| (id.as_str(), i)).collect();
+    let rank: HashMap<&str, usize> = prefs
+        .order
+        .iter()
+        .enumerate()
+        .map(|(i, id)| (id.as_str(), i))
+        .collect();
     browsers.sort_by(|a, b| {
         let ra = rank.get(a.id.as_str()).copied().unwrap_or(usize::MAX);
         let rb = rank.get(b.id.as_str()).copied().unwrap_or(usize::MAX);
-        ra.cmp(&rb).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        ra.cmp(&rb)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
     browsers
 }
@@ -92,7 +98,13 @@ pub fn apply(detected: Vec<Browser>, prefs: &BrowserPrefs) -> Vec<Browser> {
 /// was moved later doesn't make every save fail.
 pub fn validate(mut prefs: BrowserPrefs, taken: &[String]) -> AppResult<BrowserPrefs> {
     let mut used: HashSet<String> = taken.iter().cloned().collect();
-    used.extend(prefs.custom.iter().filter(|c| !c.id.is_empty()).map(|c| c.id.clone()));
+    used.extend(
+        prefs
+            .custom
+            .iter()
+            .filter(|c| !c.id.is_empty())
+            .map(|c| c.id.clone()),
+    );
     for custom in &mut prefs.custom {
         custom.name = custom.name.trim().to_string();
         custom.path = custom.path.trim().trim_matches('"').to_string();
@@ -108,7 +120,13 @@ pub fn validate(mut prefs: BrowserPrefs, taken: &[String]) -> AppResult<BrowserP
             }
             let base = format!("custom-{}", super::slug(&custom.name));
             let id = (1..)
-                .map(|n| if n == 1 { base.clone() } else { format!("{base}-{n}") })
+                .map(|n| {
+                    if n == 1 {
+                        base.clone()
+                    } else {
+                        format!("{base}-{n}")
+                    }
+                })
                 .find(|id| !used.contains(id))
                 .expect("an unused id exists");
             used.insert(id.clone());
@@ -129,7 +147,10 @@ mod tests {
             id.into(),
             name.into(),
             BrowserKind::Chromium,
-            profiles.iter().map(|(pid, pname)| Profile::new(*pid, *pname, None)).collect(),
+            profiles
+                .iter()
+                .map(|(pid, pname)| Profile::new(*pid, *pname, None))
+                .collect(),
             vec![format!("{id}.exe")],
             Some("--incognito".into()),
         )
@@ -138,7 +159,11 @@ mod tests {
     fn sample() -> Vec<Browser> {
         vec![
             detected("chrome", "Google Chrome", &[]),
-            detected("edge", "Microsoft Edge", &[("Default", "Personal"), ("Profile 1", "Work")]),
+            detected(
+                "edge",
+                "Microsoft Edge",
+                &[("Default", "Personal"), ("Profile 1", "Work")],
+            ),
             detected("brave", "Brave", &[]),
         ]
     }
@@ -172,8 +197,17 @@ mod tests {
         let (edge, chrome, brave) = (&browsers[0], &browsers[1], &browsers[2]);
         assert!(chrome.hidden && !edge.hidden);
         assert_eq!(chrome.name, "Google Chrome"); // blank label ignored
-        assert_eq!((brave.name.as_str(), brave.default_name.as_str()), ("Brave (work)", "Brave"));
-        assert_eq!((edge.profiles[0].name.as_str(), edge.profiles[0].default_name.as_str()), ("Me", "Personal"));
+        assert_eq!(
+            (brave.name.as_str(), brave.default_name.as_str()),
+            ("Brave (work)", "Brave")
+        );
+        assert_eq!(
+            (
+                edge.profiles[0].name.as_str(),
+                edge.profiles[0].default_name.as_str()
+            ),
+            ("Me", "Personal")
+        );
         assert!(!edge.profiles[0].hidden && edge.profiles[1].hidden);
     }
 
@@ -183,8 +217,18 @@ mod tests {
         let path = exe.path().to_string_lossy().into_owned();
         let prefs = BrowserPrefs {
             custom: vec![
-                CustomBrowser { id: String::new(), name: " Portable Fox ".into(), path: format!("\"{path}\""), kind: BrowserKind::Firefox },
-                CustomBrowser { id: String::new(), name: "Portable Fox".into(), path: path.clone(), kind: BrowserKind::Chromium },
+                CustomBrowser {
+                    id: String::new(),
+                    name: " Portable Fox ".into(),
+                    path: format!("\"{path}\""),
+                    kind: BrowserKind::Firefox,
+                },
+                CustomBrowser {
+                    id: String::new(),
+                    name: "Portable Fox".into(),
+                    path: path.clone(),
+                    kind: BrowserKind::Chromium,
+                },
             ],
             labels: HashMap::from([("x".into(), "".into())]),
             ..Default::default()
@@ -193,7 +237,10 @@ mod tests {
         let prefs = validate(prefs, &taken).unwrap();
         assert_eq!(prefs.custom[0].id, "custom-portable-fox-2");
         assert_eq!(prefs.custom[1].id, "custom-portable-fox-3");
-        assert_eq!((prefs.custom[0].name.as_str(), prefs.custom[0].path.as_str()), ("Portable Fox", path.as_str()));
+        assert_eq!(
+            (prefs.custom[0].name.as_str(), prefs.custom[0].path.as_str()),
+            ("Portable Fox", path.as_str())
+        );
         assert!(prefs.labels.is_empty());
 
         // Saving again keeps ids, even if the file has since gone.
@@ -201,22 +248,42 @@ mod tests {
         assert_eq!(again, prefs);
 
         let browsers = apply(sample(), &prefs);
-        let fox = browsers.iter().find(|b| b.id == "custom-portable-fox-2").unwrap();
+        let fox = browsers
+            .iter()
+            .find(|b| b.id == "custom-portable-fox-2")
+            .unwrap();
         assert!(fox.custom && fox.supports_private && fox.profiles.is_empty());
         assert_eq!(fox.exec, std::slice::from_ref(&path));
-        let chromium = browsers.iter().find(|b| b.id == "custom-portable-fox-3").unwrap();
+        let chromium = browsers
+            .iter()
+            .find(|b| b.id == "custom-portable-fox-3")
+            .unwrap();
         assert_eq!(chromium.private_flag.as_deref(), Some("--incognito"));
     }
 
     #[test]
     fn validate_rejects_bad_custom() {
         let custom = |name: &str, path: &str| BrowserPrefs {
-            custom: vec![CustomBrowser { id: String::new(), name: name.into(), path: path.into(), kind: BrowserKind::Other }],
+            custom: vec![CustomBrowser {
+                id: String::new(),
+                name: name.into(),
+                path: path.into(),
+                kind: BrowserKind::Other,
+            }],
             ..Default::default()
         };
-        assert!(matches!(validate(custom("", "x"), &[]), Err(AppError::Invalid(_))));
-        assert!(matches!(validate(custom("X", " "), &[]), Err(AppError::Invalid(_))));
-        assert!(matches!(validate(custom("X", "/definitely/not/here.exe"), &[]), Err(AppError::Invalid(_))));
+        assert!(matches!(
+            validate(custom("", "x"), &[]),
+            Err(AppError::Invalid(_))
+        ));
+        assert!(matches!(
+            validate(custom("X", " "), &[]),
+            Err(AppError::Invalid(_))
+        ));
+        assert!(matches!(
+            validate(custom("X", "/definitely/not/here.exe"), &[]),
+            Err(AppError::Invalid(_))
+        ));
     }
 
     #[test]
@@ -224,7 +291,11 @@ mod tests {
         let prefs: BrowserPrefs = serde_json::from_str(r#"{"hidden":["edge"]}"#).unwrap();
         assert_eq!(prefs.hidden, ["edge"]);
         assert!(prefs.order.is_empty() && prefs.custom.is_empty());
-        let custom: CustomBrowser = serde_json::from_str(r#"{"name":"X","path":"p","kind":"firefox"}"#).unwrap();
-        assert_eq!((custom.id.as_str(), custom.kind), ("", BrowserKind::Firefox));
+        let custom: CustomBrowser =
+            serde_json::from_str(r#"{"name":"X","path":"p","kind":"firefox"}"#).unwrap();
+        assert_eq!(
+            (custom.id.as_str(), custom.kind),
+            ("", BrowserKind::Firefox)
+        );
     }
 }

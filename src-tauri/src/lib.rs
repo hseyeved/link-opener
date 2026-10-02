@@ -4,6 +4,7 @@ mod db;
 mod error;
 mod metadata;
 mod shortcut;
+mod transfer;
 mod tray;
 
 use std::sync::Mutex;
@@ -22,6 +23,7 @@ const SEARCH_FLAG: &str = "--search";
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         // single-instance must be registered first.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if args.iter().any(|a| a == SEARCH_FLAG) {
@@ -39,7 +41,11 @@ pub fn run() {
                 })
                 .build(),
         )
-        .plugin(tauri_plugin_autostart::Builder::new().args([HIDDEN_FLAG]).build())
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .args([HIDDEN_FLAG])
+                .build(),
+        )
         // Visibility is ours to decide (start hidden in the tray), not the saved state's.
         .plugin(
             tauri_plugin_window_state::Builder::new()
@@ -112,6 +118,10 @@ pub fn run() {
             commands::set_global_shortcut,
             commands::set_close_to_tray,
             commands::set_autostart,
+            commands::export_backup,
+            commands::export_html,
+            commands::inspect_import,
+            commands::import_file,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

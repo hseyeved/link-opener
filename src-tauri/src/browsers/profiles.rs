@@ -32,7 +32,10 @@ pub fn parse_local_state(json: &str) -> Vec<Profile> {
     let Ok(root) = serde_json::from_str::<Value>(json) else {
         return Vec::new();
     };
-    let Some(cache) = root.pointer("/profile/info_cache").and_then(Value::as_object) else {
+    let Some(cache) = root
+        .pointer("/profile/info_cache")
+        .and_then(Value::as_object)
+    else {
         return Vec::new();
     };
     let order: Vec<&str> = root
@@ -43,7 +46,12 @@ pub fn parse_local_state(json: &str) -> Vec<Profile> {
 
     let mut profiles: Vec<Profile> = cache
         .iter()
-        .filter(|(_, info)| !info.get("is_ephemeral").and_then(Value::as_bool).unwrap_or(false))
+        .filter(|(_, info)| {
+            !info
+                .get("is_ephemeral")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        })
         .map(|(dir, info)| {
             let text = |key: &str| {
                 info.get(key)
@@ -52,12 +60,20 @@ pub fn parse_local_state(json: &str) -> Vec<Profile> {
                     .filter(|s| !s.is_empty())
                     .map(str::to_string)
             };
-            Profile::new(dir.clone(), text("name").unwrap_or_else(|| dir.clone()), text("user_name"))
+            Profile::new(
+                dir.clone(),
+                text("name").unwrap_or_else(|| dir.clone()),
+                text("user_name"),
+            )
         })
         .collect();
 
     let rank = |p: &Profile| order.iter().position(|d| *d == p.id).unwrap_or(usize::MAX);
-    profiles.sort_by(|a, b| rank(a).cmp(&rank(b)).then_with(|| chromium_dir_order(&a.id, &b.id)));
+    profiles.sort_by(|a, b| {
+        rank(a)
+            .cmp(&rank(b))
+            .then_with(|| chromium_dir_order(&a.id, &b.id))
+    });
     profiles
 }
 
@@ -89,13 +105,21 @@ pub fn parse_profiles_ini(text: &str) -> Vec<Profile> {
             continue;
         }
         if let Some(name) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
-            sections.push(Section { name: name.to_string(), entries: Vec::new() });
+            sections.push(Section {
+                name: name.to_string(),
+                entries: Vec::new(),
+            });
         } else if let (Some(section), Some((k, v))) = (sections.last_mut(), line.split_once('=')) {
-            section.entries.push((k.trim().to_string(), v.trim().to_string()));
+            section
+                .entries
+                .push((k.trim().to_string(), v.trim().to_string()));
         }
     }
     let get = |s: &Section, key: &str| {
-        s.entries.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone())
+        s.entries
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.clone())
     };
 
     let install_default = sections
@@ -198,7 +222,10 @@ Version=2
 
     #[test]
     fn firefox_profiles_install_default_first() {
-        let names: Vec<_> = parse_profiles_ini(PROFILES_INI).into_iter().map(|p| p.id).collect();
+        let names: Vec<_> = parse_profiles_ini(PROFILES_INI)
+            .into_iter()
+            .map(|p| p.id)
+            .collect();
         assert_eq!(names, ["Work", "default", "Testing"]);
     }
 

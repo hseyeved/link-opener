@@ -1,7 +1,7 @@
 // Which dialog is open, so any component can open one. The page renders them.
 import * as api from "./api";
 import { app, errorMessage } from "./state.svelte";
-import type { Bookmark, Folder, ResolvedTarget } from "./types";
+import type { Bookmark, Folder, ImportPreview, ResolvedTarget } from "./types";
 
 export type MoveItem = { kind: "bookmark"; bookmark: Bookmark } | { kind: "folder"; folder: Folder };
 
@@ -22,9 +22,20 @@ class Ui {
   folderTarget = $state<Folder | null>(null);
   settingsOpen = $state(false);
   browsersOpen = $state(false);
+  /** File chosen for import, with what it contains. */
+  importing = $state<{ path: string; preview: ImportPreview } | null>(null);
+  /** Short-lived status text in the toolbar. */
+  notice = $state<string | null>(null);
+  #noticeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  notify(text: string | null, ms = 5000) {
+    clearTimeout(this.#noticeTimer);
+    this.notice = text;
+    if (text) this.#noticeTimer = setTimeout(() => (this.notice = null), ms);
+  }
 
   get dialogOpen(): boolean {
-    return !!(this.editing || this.picking || this.searching || this.moving || this.folderTarget || this.settingsOpen || this.browsersOpen);
+    return !!(this.editing || this.picking || this.searching || this.moving || this.folderTarget || this.settingsOpen || this.browsersOpen || this.importing);
   }
 
   closeAll() {
@@ -35,6 +46,7 @@ class Ui {
     this.folderTarget = null;
     this.settingsOpen = false;
     this.browsersOpen = false;
+    this.importing = null;
   }
 
   /** Opens with the bookmark's default browser if it has one (and opening directly is on),

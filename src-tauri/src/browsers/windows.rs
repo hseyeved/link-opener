@@ -11,7 +11,10 @@ use super::{expand, known, Detected, Os};
 const ROOTS: [(winreg::HKEY, &str); 3] = [
     (HKEY_CURRENT_USER, r"SOFTWARE\Clients\StartMenuInternet"),
     (HKEY_LOCAL_MACHINE, r"SOFTWARE\Clients\StartMenuInternet"),
-    (HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Clients\StartMenuInternet"),
+    (
+        HKEY_LOCAL_MACHINE,
+        r"SOFTWARE\WOW6432Node\Clients\StartMenuInternet",
+    ),
 ];
 
 pub fn detect() -> Vec<Detected> {
@@ -44,7 +47,12 @@ pub fn detect() -> Vec<Detected> {
             let known = known::find(Os::Windows, &exe);
             // An empty name falls back to the known browser's name (see `finalize`).
             let name = client.get_value::<String, _>("").unwrap_or_default();
-            found.push(Detected { name, exec: vec![exe], source_id: key_name, known });
+            found.push(Detected {
+                name,
+                exec: vec![exe],
+                source_id: key_name,
+                known,
+            });
         }
     }
     found
@@ -78,11 +86,13 @@ mod tests {
     #[test]
     fn command_values() {
         assert_eq!(
-            parse_command_exe(r#""C:\Program Files\Google\Chrome\Application\chrome.exe""#).as_deref(),
+            parse_command_exe(r#""C:\Program Files\Google\Chrome\Application\chrome.exe""#)
+                .as_deref(),
             Some(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
         );
         assert_eq!(
-            parse_command_exe(r#""C:\Program Files\Mozilla Firefox\firefox.exe" -osint -url "%1""#).as_deref(),
+            parse_command_exe(r#""C:\Program Files\Mozilla Firefox\firefox.exe" -osint -url "%1""#)
+                .as_deref(),
             Some(r"C:\Program Files\Mozilla Firefox\firefox.exe")
         );
         assert_eq!(
