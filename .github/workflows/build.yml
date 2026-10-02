@@ -79,12 +79,41 @@ jobs:
           command: check licenses
           manifest-path: src-tauri/Cargo.toml
 
+  # Creates the draft release once, before the long builds: a token without write access
+  # fails here in seconds, and the parallel installer jobs can't each create their own draft.
+  release:
+    name: Draft release
+    needs: [test, licenses]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create the draft release (if it doesn't exist yet)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $TAG already exists."
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+              --title "Link Opener $TAG" \
+              --notes "Installers for Windows (x64 and ARM64), macOS (universal) and Linux (AppImage, deb, rpm). See CHANGELOG.md for what's new."
+          fi
+
   build:
     name: Installers (${{ matrix.name }})
-    needs: [test, licenses]
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: [test, licenses, release]
+    # On a tag, after the draft release exists; on a manual run, the release job is skipped.
+    if: >-
+      !cancelled()
+      && needs.test.result == 'success'
+      && needs.licenses.result == 'success'
+      && (startsWith(github.ref, 'refs/tags/v') && needs.release.result == 'success'
+          || github.event_name == 'workflow_dispatch')
     permissions:
-      contents: write # create the draft release on tags
+      contents: write # upload installers to the draft release
     strategy:
       fail-fast: false
       matrix:
@@ -131,16 +160,14 @@ jobs:
 
       - run: npm ci
 
-      # On a v* tag this also uploads to a draft release; on a manual run it only builds.
+      # On a v* tag this uploads to the draft release made by the release job; on a manual
+      # run it only builds.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
-          releaseName: Link Opener ${{ github.ref_name }}
-          releaseBody: Installers for Windows (x64 and ARM64), macOS (universal) and Linux (AppImage, deb, rpm).
           releaseDraft: true
-          prerelease: false
           args: ${{ matrix.args }}
 
       - uses: actions/upload-artifact@v4
