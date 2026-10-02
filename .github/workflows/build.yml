@@ -1,5 +1,6 @@
-# Tests on every push/PR; installers for Windows, macOS and Linux after the tests pass.
-# Pushing a tag like v0.2.0 also creates a draft GitHub release with the installers attached.
+# Tests on every push/PR. Installers for Windows, macOS and Linux only for version tags
+# (v0.2.0 etc.), which also create a draft GitHub release, or when run by hand from the
+# Actions tab ("Run workflow"), which just attaches them to the run.
 name: Build
 
 on:
@@ -66,6 +67,7 @@ jobs:
   build:
     name: Installers (${{ matrix.name }})
     needs: test
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     permissions:
       contents: write # create the draft release on tags
     strategy:
@@ -114,7 +116,7 @@ jobs:
 
       - run: npm ci
 
-      # Without a tag this only builds; with a v* tag it also uploads to a draft release.
+      # On a v* tag this also uploads to a draft release; on a manual run it only builds.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

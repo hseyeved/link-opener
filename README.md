@@ -49,10 +49,12 @@ Installers end up in `src-tauri/target/release/bundle/`.
 
 ### CI and releases
 
-[`.github/workflows/build.yml`](.github/workflows/build.yml) runs on every push and pull request:
+[`.github/workflows/build.yml`](.github/workflows/build.yml) has two jobs:
 
-1. **Test** on Windows, macOS and Linux: `npm run check`, a frontend build, clippy, `cargo test`.
-2. **Installers** once the tests pass: Windows x64 and ARM64 (MSI and NSIS), macOS universal (DMG),
+1. **Test**, on every push and pull request, on Windows, macOS and Linux: `npm run check`, a
+   frontend build, clippy, `cargo test`.
+2. **Installers**, only for version tags (`v*`) or when run by hand (Actions → Build → Run
+   workflow), after the tests pass: Windows x64 and ARM64 (MSI and NSIS), macOS universal (DMG),
    Linux x64 (AppImage, deb, rpm). They're attached to the run as artifacts.
 
 To publish a release:
