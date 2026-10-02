@@ -120,6 +120,7 @@ impl Browser {
 
 /// What a platform scan found, before profiles are read and ids assigned.
 pub(crate) struct Detected {
+    /// Display name as found; may be empty.
     pub name: String,
     pub exec: Vec<String>,
     /// Registry key, desktop file id or bundle id. Names unknown browsers.
@@ -174,7 +175,12 @@ fn finalize(found: Vec<Detected>, os: Os) -> Vec<Browser> {
                 None => Vec::new(),
             };
             let private_flag = d.known.and_then(|k| k.private_flag).map(str::to_string);
-            Browser::new(id, d.name, kind, profiles, d.exec, private_flag)
+            // Prefer the name the OS reports; else the known browser's name; else the raw id.
+            let name = match d.name.trim() {
+                "" => d.known.map_or_else(|| d.source_id.clone(), |k| k.name.to_string()),
+                name => name.to_string(),
+            };
+            Browser::new(id, name, kind, profiles, d.exec, private_flag)
         })
         .collect();
     browsers.sort_by_key(|b| b.name.to_lowercase());
@@ -271,6 +277,22 @@ mod tests {
                 println!("    {} = {} {:?}", p.id, p.name, p.email);
             }
         }
+    }
+
+    #[test]
+    fn empty_names_fall_back() {
+        let os = Os::Windows;
+        let browsers = finalize(
+            vec![
+                // The registry key differs from the known name, so the known name shows it matched.
+                detected(" ", "MSEdgeKey", os, "C:/Edge/msedge.exe"),
+                detected("", "Odd-Browser-Key", os, "C:/Odd/odd.exe"),
+                detected("  Brave Beta ", "Brave", os, "C:/Brave/brave.exe"),
+            ],
+            os,
+        );
+        let names: Vec<&str> = browsers.iter().map(|b| b.name.as_str()).collect();
+        assert_eq!(names, ["Brave Beta", "Microsoft Edge", "Odd-Browser-Key"]);
     }
 
     #[test]

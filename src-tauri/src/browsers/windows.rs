@@ -42,12 +42,8 @@ pub fn detect() -> Vec<Detected> {
                 continue;
             }
             let known = known::find(Os::Windows, &exe);
-            let name = client
-                .get_value::<String, _>("")
-                .ok()
-                .filter(|n| !n.trim().is_empty())
-                .or_else(|| known.map(|k| k.name.to_string()))
-                .unwrap_or_else(|| key_name.clone());
+            // An empty name falls back to the known browser's name (see `finalize`).
+            let name = client.get_value::<String, _>("").unwrap_or_default();
             found.push(Detected { name, exec: vec![exe], source_id: key_name, known });
         }
     }
