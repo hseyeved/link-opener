@@ -15,8 +15,10 @@
   let busy = $state(false);
   let error = $state<string | null>(null);
   let shortcutError = $state<string | null>(null);
+  let version = $state<string | null>(null);
 
   onMount(async () => {
+    api.appVersion().then((v) => (version = v), () => {});
     try {
       settings = await api.getDesktopSettings();
       shortcutError = settings.shortcutError;
@@ -180,6 +182,10 @@
         <p class="error" role="alert">{error}</p>
       {/if}
     {/if}
+
+    {#if version}
+      <footer class="version">Link Opener {version}</footer>
+    {/if}
   </div>
 </div>
 
@@ -259,6 +265,15 @@
   .check span {
     display: flex;
     flex-direction: column;
+  }
+
+  .version {
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    user-select: text;
   }
 
   .note {

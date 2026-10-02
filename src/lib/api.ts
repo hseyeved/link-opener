@@ -1,4 +1,5 @@
 // The only module that calls `invoke`. Errors reject with the backend's message string.
+import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -141,3 +142,6 @@ export const inspectImport = (path: string) => invoke<ImportPreview>("inspect_im
 /** Browser files always merge, into a new top-level folder named `folderName`. */
 export const importFile = (path: string, mode: ImportMode, skipDuplicates: boolean, folderName: string | null) =>
   invoke<ImportSummary>("import_file", { path, mode, skipDuplicates, folderName });
+
+/** The app version from tauri.conf.json, e.g. "0.2.0". */
+export const appVersion = () => getVersion();
