@@ -160,6 +160,50 @@ jobs:
 
       - run: npm ci
 
+      # Signs and notarizes the macOS app when all the Apple secrets are set (tauri-action reads
+      # them from the environment). Without any of them (forks, or before they're added) the app
+      # is built unsigned; with only some of them the job fails.
+      - name: Set up macOS signing
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          missing=""
+          present=0
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
+                      APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_P8; do
+            if [ -n "${!name}" ]; then present=$((present + 1)); else missing="$missing $name"; fi
+          done
+          if [ "$present" -eq 0 ]; then
+            echo "::warning::No Apple signing secrets are set; the macOS app will be unsigned."
+            exit 0
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::Missing Apple signing secrets:$missing"
+            exit 1
+          fi
+
+          key_path="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s\n' "$APPLE_API_KEY_P8" > "$key_path"
+          chmod 600 "$key_path"
+
+          # Multi-line syntax, in case a value was pasted with line breaks.
+          add_env() {
+            delim="EOF_$(uuidgen)"
+            printf '%s<<%s\n%s\n%s\n' "$1" "$delim" "$2" "$delim" >> "$GITHUB_ENV"
+          }
+          add_env APPLE_CERTIFICATE "$APPLE_CERTIFICATE"
+          add_env APPLE_CERTIFICATE_PASSWORD "$APPLE_CERTIFICATE_PASSWORD"
+          add_env APPLE_SIGNING_IDENTITY "$APPLE_SIGNING_IDENTITY"
+          add_env APPLE_API_ISSUER "$APPLE_API_ISSUER"
+          add_env APPLE_API_KEY "$APPLE_API_KEY"
+          add_env APPLE_API_KEY_PATH "$key_path"
+
       # On a v* tag this uploads to the draft release made by the release job; on a manual
       # run it only builds.
       - uses: tauri-apps/tauri-action@v1

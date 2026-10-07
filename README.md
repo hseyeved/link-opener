@@ -4,6 +4,8 @@ A bookmark library that lives outside your browsers. When you open a link, it as
 **browser and profile** to use (optionally in a private window), or uses the default you've
 set for that bookmark or folder. Runs on Windows, macOS and Linux.
 
+Website: [linkopener.dev](https://linkopener.dev)
+
 - Folders, tags, notes, drag-and-drop, and a `Ctrl/Cmd+K` search palette
 - Detects installed browsers and their profiles (Chromium family, Firefox family, Safari)
 - Fetches page titles and favicons
@@ -82,11 +84,23 @@ To publish a release:
 
 ### Code signing
 
-The installers are not signed yet, so Windows SmartScreen and macOS Gatekeeper will warn on
-first launch (on macOS: right-click → Open). To sign, add the certificates as repository
-secrets and pass them to `tauri-action`; see Tauri's
-[Windows](https://tauri.app/distribute/sign/windows/) and
-[macOS](https://tauri.app/distribute/sign/macos/) signing guides. Open-source projects can get
+The macOS app is signed and notarized when these six repository secrets are set (see Tauri's
+[macOS signing guide](https://tauri.app/distribute/sign/macos/)):
+
+- `APPLE_CERTIFICATE`: the Developer ID Application certificate exported as `.p12`, encoded
+  with `base64 -w0 cert.p12`.
+- `APPLE_CERTIFICATE_PASSWORD`: the password you set when exporting the `.p12`.
+- `APPLE_SIGNING_IDENTITY`: the identity string, e.g.
+  `Developer ID Application: Your Name (TEAMID)` (`security find-identity -v -p codesigning`).
+- `APPLE_API_ISSUER`: the Issuer ID from App Store Connect → Users and Access → Integrations.
+- `APPLE_API_KEY`: the Key ID of the App Store Connect API key.
+- `APPLE_API_KEY_P8`: the full contents of the downloaded `AuthKey_<KeyID>.p8` file.
+
+Without them (for example in a fork) the macOS build still works but is unsigned, and Gatekeeper
+warns on first launch (right-click → Open). If only some are set, the build fails.
+
+The Windows installers are not signed yet, so SmartScreen will warn on first launch; see Tauri's
+[Windows signing guide](https://tauri.app/distribute/sign/windows/). Open-source projects can get
 free Windows signing from the [SignPath Foundation](https://signpath.org/).
 
 ## Contributing
