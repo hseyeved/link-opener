@@ -4,6 +4,17 @@ All notable changes to Link Opener. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-10-08
+
+### Changed
+
+- The macOS app is now signed and notarized, so it opens without a Gatekeeper warning.
+
+### Fixed
+
+- macOS: deleting a bookmark did nothing after clicking "Confirm?".
+- macOS: the global shortcut in Settings couldn't be changed; key presses weren't recorded.
+
 ## [0.3.0] - 2026-10-02
 
 ### Added

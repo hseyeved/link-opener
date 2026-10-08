@@ -56,7 +56,11 @@
   class="recorder"
   class:recording
   {disabled}
-  onclick={() => {
+  onmousedown={(e) => e.preventDefault()}
+  onclick={(e) => {
+    // WebKit (macOS) doesn't focus buttons on click, and the key events only reach a focused
+    // button; mousedown is cancelled so a second click toggles off instead of blurring first.
+    e.currentTarget.focus();
     recording = !recording;
     held = "";
   }}

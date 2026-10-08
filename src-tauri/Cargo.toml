@@ -1,6 +1,6 @@
 [package]
 name = "link-opener"
-version = "0.3.0"
+version = "0.3.1"
 description = "Browser-independent bookmark library and link opener"
 authors = ["hseyeved"]
 license = "GPL-3.0-or-later"
