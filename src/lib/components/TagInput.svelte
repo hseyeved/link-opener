@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import * as api from "$lib/api";
-  import type { Tag } from "$lib/types";
+  import * as api from "#lib/api.js";
+  import type { Tag } from "#lib/types.js";
 
   interface Props {
     tags: string[];

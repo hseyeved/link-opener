@@ -1,10 +1,10 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { focus } from "$lib/actions";
-  import * as api from "$lib/api";
-  import { app, errorMessage } from "$lib/state.svelte";
-  import type { Bookmark } from "$lib/types";
-  import { ui } from "$lib/ui.svelte";
+  import { focus } from "#lib/actions.js";
+  import * as api from "#lib/api.js";
+  import { app, errorMessage } from "#lib/state.svelte.js";
+  import type { Bookmark } from "#lib/types.js";
+  import { ui } from "#lib/ui.svelte.js";
   import Favicon from "./Favicon.svelte";
 
   function close() {

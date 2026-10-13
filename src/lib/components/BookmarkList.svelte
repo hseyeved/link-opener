@@ -1,10 +1,10 @@
 <script lang="ts">
-  import * as api from "$lib/api";
-  import { dnd, pointerFraction } from "$lib/dnd.svelte";
-  import { app } from "$lib/state.svelte";
-  import { describeTarget } from "$lib/targets";
-  import type { Bookmark } from "$lib/types";
-  import { ui } from "$lib/ui.svelte";
+  import * as api from "#lib/api.js";
+  import { dnd, pointerFraction } from "#lib/dnd.svelte.js";
+  import { app } from "#lib/state.svelte.js";
+  import { describeTarget } from "#lib/targets.js";
+  import type { Bookmark } from "#lib/types.js";
+  import { ui } from "#lib/ui.svelte.js";
   import Favicon from "./Favicon.svelte";
   import ConfirmButton from "./ConfirmButton.svelte";
 

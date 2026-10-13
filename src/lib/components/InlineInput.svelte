@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { focus } from "$lib/actions";
+  import { focus } from "#lib/actions.js";
 
   interface Props {
     value?: string;

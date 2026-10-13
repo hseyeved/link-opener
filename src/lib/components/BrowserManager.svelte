@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import * as api from "$lib/api";
-  import { app, errorMessage } from "$lib/state.svelte";
-  import type { Browser, BrowserKind, BrowserPrefs } from "$lib/types";
+  import * as api from "#lib/api.js";
+  import { app, errorMessage } from "#lib/state.svelte.js";
+  import type { Browser, BrowserKind, BrowserPrefs } from "#lib/types.js";
   import InlineInput from "./InlineInput.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
