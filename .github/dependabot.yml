@@ -14,6 +14,11 @@ updates:
     schedule:
       interval: weekly
     groups:
+      # SvelteKit and its adapter and Vite plugin require each other's versions, so a major
+      # upgrade of one only works together with the others. Listed first so it takes them
+      # out of npm-minor.
+      sveltejs:
+        patterns: ["@sveltejs/*"]
       npm-minor:
         update-types: [minor, patch]
     ignore:
