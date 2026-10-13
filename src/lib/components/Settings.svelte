@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import * as api from "$lib/api";
-  import { app, errorMessage } from "$lib/state.svelte";
-  import type { DesktopSettings } from "$lib/types";
-  import { backUp, exportHtml, startImport } from "$lib/data";
-  import { ui } from "$lib/ui.svelte";
+  import * as api from "#lib/api.js";
+  import { app, errorMessage } from "#lib/state.svelte.js";
+  import type { DesktopSettings } from "#lib/types.js";
+  import { backUp, exportHtml, startImport } from "#lib/data.js";
+  import { ui } from "#lib/ui.svelte.js";
   import ShortcutRecorder from "./ShortcutRecorder.svelte";
 
   let { onclose }: { onclose: () => void } = $props();

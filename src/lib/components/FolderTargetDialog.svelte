@@ -1,9 +1,9 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import * as api from "$lib/api";
-  import { app, errorMessage } from "$lib/state.svelte";
-  import { describeTarget } from "$lib/targets";
-  import type { Folder, LaunchTarget } from "$lib/types";
+  import * as api from "#lib/api.js";
+  import { app, errorMessage } from "#lib/state.svelte.js";
+  import { describeTarget } from "#lib/targets.js";
+  import type { Folder, LaunchTarget } from "#lib/types.js";
   import TargetSelect from "./TargetSelect.svelte";
 
   let { folder, onclose }: { folder: Folder; onclose: () => void } = $props();

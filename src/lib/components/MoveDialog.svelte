@@ -1,9 +1,9 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { focus } from "$lib/actions";
-  import * as api from "$lib/api";
-  import { app, errorMessage } from "$lib/state.svelte";
-  import type { MoveItem } from "$lib/ui.svelte";
+  import { focus } from "#lib/actions.js";
+  import * as api from "#lib/api.js";
+  import { app, errorMessage } from "#lib/state.svelte.js";
+  import type { MoveItem } from "#lib/ui.svelte.js";
 
   let { item, onclose }: { item: MoveItem; onclose: () => void } = $props();
 

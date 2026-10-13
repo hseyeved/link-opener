@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { focus } from "$lib/actions";
+  import { focus } from "#lib/actions.js";
 
   interface Props {
     label: string;

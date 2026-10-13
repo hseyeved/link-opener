@@ -1,9 +1,9 @@
 <script lang="ts">
-  import * as api from "$lib/api";
-  import { dnd, pointerFraction, type DropZone } from "$lib/dnd.svelte";
-  import { app, type FolderNode } from "$lib/state.svelte";
-  import { describeTarget } from "$lib/targets";
-  import { ui } from "$lib/ui.svelte";
+  import * as api from "#lib/api.js";
+  import { dnd, pointerFraction, type DropZone } from "#lib/dnd.svelte.js";
+  import { app, type FolderNode } from "#lib/state.svelte.js";
+  import { describeTarget } from "#lib/targets.js";
+  import { ui } from "#lib/ui.svelte.js";
   import InlineInput from "./InlineInput.svelte";
   import Menu from "./Menu.svelte";
   import Self from "./FolderNode.svelte";

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app } from "$lib/state.svelte";
+  import { app } from "#lib/state.svelte.js";
 
   interface Props {
     /** Stored file name, or `null` for the letter fallback. */
