@@ -1,6 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import * as api from "./api";
-import type { Bookmark, Browser, Folder, LaunchTarget } from "./types";
+import type { Bookmark, BookmarkSort, Browser, Folder, LaunchTarget } from "./types";
 
 export interface FolderNode extends Folder {
   children: FolderNode[];
@@ -38,7 +38,20 @@ function message(e: unknown): string {
 
 const UNFILED_NAME_KEY = "unfiled_name";
 const OPEN_DIRECT_KEY = "open_direct";
+const SORT_KEY = "bookmark_sort";
 export const DEFAULT_UNFILED_NAME = "Unfiled";
+
+export const SORTS: { value: BookmarkSort; label: string }[] = [
+  { value: "manual", label: "Manual order" },
+  { value: "title", label: "Title" },
+  { value: "added", label: "Date added" },
+  { value: "lastOpened", label: "Last opened" },
+  { value: "mostOpened", label: "Most opened" },
+];
+
+function parseSort(value: string | null): BookmarkSort {
+  return SORTS.find((s) => s.value === value)?.value ?? "manual";
+}
 
 class AppState {
   folders = $state<Folder[]>([]);
@@ -50,6 +63,10 @@ class AppState {
   browsers = $state<Browser[] | null>(null);
   /** Display name of the root (folder_id = null). Renamable; stored as a setting. */
   unfiledName = $state(DEFAULT_UNFILED_NAME);
+  /** Order of the bookmark list, for every folder. Stored as a setting. */
+  sort = $state<BookmarkSort>("manual");
+  /** Dragging bookmarks to reorder them only makes sense in manual order. */
+  canReorder = $derived(this.sort === "manual");
 
   tree = $derived(buildTree(this.folders));
   flatFolders = $derived(flatten(this.tree));
@@ -109,6 +126,13 @@ class AppState {
     this.openDirect = value;
   }
 
+  /** Applies the order right away (the toolbar select already shows it), then saves it. */
+  async setSort(value: BookmarkSort) {
+    this.sort = value;
+    await this.reloadBookmarks();
+    await api.setSetting(SORT_KEY, value);
+  }
+
   /** After moves or deletes that can touch both the tree and the list. */
   async reloadAll() {
     await this.reloadFolders();
@@ -123,10 +147,16 @@ class AppState {
   }
 
   async reloadBookmarks() {
-    const folderId = this.selectedFolderId;
-    const bookmarks = await api.listBookmarks(folderId);
-    // Ignore a stale response if the selection changed meanwhile.
-    if (folderId === this.selectedFolderId) this.bookmarks = bookmarks;
+    const { selectedFolderId: folderId, sort } = this;
+    const bookmarks = await api.listBookmarks(folderId, sort);
+    // Ignore a stale response if the selection or order changed meanwhile.
+    if (folderId === this.selectedFolderId && sort === this.sort) this.bookmarks = bookmarks;
+  }
+
+  /** Opening a bookmark changes its open count and time, which some orders depend on.
+   * In the background: the link is already open, so a failure here isn't worth reporting. */
+  refreshAfterOpen() {
+    this.reloadBookmarks().catch(() => {});
   }
 
   async loadBrowsers(refresh = false) {
@@ -154,6 +184,7 @@ class AppState {
     await this.run(async () => {
       this.unfiledName = (await api.getSetting(UNFILED_NAME_KEY)) || DEFAULT_UNFILED_NAME;
       this.openDirect = (await api.getSetting(OPEN_DIRECT_KEY)) !== "false";
+      this.sort = parseSort(await api.getSetting(SORT_KEY));
       this.faviconDir = await api.faviconDir();
       await this.reloadFolders();
       await this.reloadBookmarks();

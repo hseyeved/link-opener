@@ -106,10 +106,51 @@ pub(crate) fn target_json(target: Option<&LaunchTarget>) -> AppResult<Option<Str
         .transpose()
 }
 
-/// Bookmarks directly in `folder_id` (`None` = Unfiled), in position order.
-pub fn list(conn: &Connection, folder_id: Option<i64>) -> AppResult<Vec<Bookmark>> {
+/// Order of a folder's bookmarks in the list.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BookmarkSort {
+    /// The user's drag-and-drop order.
+    #[default]
+    Manual,
+    /// A to Z, ignoring case; untitled bookmarks sort by URL.
+    Title,
+    /// Newest first.
+    Added,
+    /// Most recently opened first; never-opened ones last.
+    LastOpened,
+    /// Highest open count first, then most recently opened.
+    MostOpened,
+}
+
+impl BookmarkSort {
+    /// Fixed SQL per variant, so nothing user-supplied reaches the query.
+    fn order_by(self) -> &'static str {
+        match self {
+            Self::Manual => "b.position, b.id",
+            Self::Title => {
+                "CASE WHEN b.title = '' THEN b.url ELSE b.title END COLLATE NOCASE, b.position, b.id"
+            }
+            Self::Added => "b.created_at DESC, b.id DESC",
+            Self::LastOpened => {
+                "b.last_opened_at IS NULL, b.last_opened_at DESC, b.position, b.id"
+            }
+            Self::MostOpened => {
+                "b.open_count DESC, b.last_opened_at IS NULL, b.last_opened_at DESC, b.position, b.id"
+            }
+        }
+    }
+}
+
+/// Bookmarks directly in `folder_id` (`None` = Unfiled), in `sort` order.
+pub fn list(
+    conn: &Connection,
+    folder_id: Option<i64>,
+    sort: BookmarkSort,
+) -> AppResult<Vec<Bookmark>> {
     let mut stmt = conn.prepare_cached(&format!(
-        "SELECT {COLUMNS} FROM bookmarks b WHERE b.folder_id IS ?1 ORDER BY b.position, b.id"
+        "SELECT {COLUMNS} FROM bookmarks b WHERE b.folder_id IS ?1 ORDER BY {}",
+        sort.order_by()
     ))?;
     let bookmarks = stmt
         .query_map([folder_id], Bookmark::from_row)?
@@ -414,7 +455,7 @@ mod tests {
         assert_eq!(b.open_count, 0);
         assert_eq!(b.created_at, b.updated_at);
         assert_eq!(get(&conn, b.id).unwrap(), b);
-        assert_eq!(list(&conn, None).unwrap(), vec![b]);
+        assert_eq!(list(&conn, None, BookmarkSort::Manual).unwrap(), vec![b]);
     }
 
     #[test]
@@ -423,9 +464,15 @@ mod tests {
         let f = folders::create(&conn, None, "F").unwrap();
         create(&conn, new(None, "a", "a.com")).unwrap();
         create(&conn, new(Some(f.id), "b", "b.com")).unwrap();
-        assert_eq!(list(&conn, None).unwrap()[0].title, "a");
-        assert_eq!(list(&conn, Some(f.id)).unwrap()[0].title, "b");
-        assert_eq!(list(&conn, None).unwrap().len(), 1);
+        assert_eq!(
+            list(&conn, None, BookmarkSort::Manual).unwrap()[0].title,
+            "a"
+        );
+        assert_eq!(
+            list(&conn, Some(f.id), BookmarkSort::Manual).unwrap()[0].title,
+            "b"
+        );
+        assert_eq!(list(&conn, None, BookmarkSort::Manual).unwrap().len(), 1);
     }
 
     #[test]
@@ -436,7 +483,7 @@ mod tests {
         let b = create(&conn, new(Some(f.id), "b", "b.com")).unwrap();
         let u = create(&conn, new(None, "u", "u.com")).unwrap();
         assert_eq!((a.position, b.position, u.position), (0, 1, 0));
-        let titles: Vec<_> = list(&conn, Some(f.id))
+        let titles: Vec<_> = list(&conn, Some(f.id), BookmarkSort::Manual)
             .unwrap()
             .into_iter()
             .map(|b| b.title)
@@ -565,7 +612,7 @@ mod tests {
         let b = create(&conn, new(None, "b", "b.com")).unwrap();
         let c = create(&conn, new(None, "c", "c.com")).unwrap();
         let titles = |folder| -> Vec<String> {
-            list(&conn, folder)
+            list(&conn, folder, BookmarkSort::Manual)
                 .unwrap()
                 .into_iter()
                 .map(|b| b.title)
@@ -728,6 +775,66 @@ mod tests {
         }
         assert!(matches!(normalize_url(""), Err(AppError::Invalid(_))));
         assert!(matches!(normalize_url(" \t "), Err(AppError::Invalid(_))));
+    }
+
+    #[test]
+    fn sort_orders() {
+        let conn = open_in_memory().unwrap();
+        // Manual order: b, a, c, untitled (z.com).
+        let ids: Vec<i64> = [
+            ("b", "b.com"),
+            ("A", "a.com"),
+            ("c", "c.com"),
+            ("", "z.com"),
+        ]
+        .into_iter()
+        .map(|(t, u)| create(&conn, new(None, t, u)).unwrap().id)
+        .collect();
+        let set = |id: i64, created: i64, opened: Option<i64>, count: i64| {
+            conn.execute(
+                "UPDATE bookmarks SET created_at = ?2, last_opened_at = ?3, open_count = ?4
+                 WHERE id = ?1",
+                params![id, created, opened, count],
+            )
+            .unwrap();
+        };
+        set(ids[0], 300, Some(10), 5); // b
+        set(ids[1], 100, Some(30), 1); // A
+        set(ids[2], 400, None, 0); // c: never opened
+        set(ids[3], 200, Some(20), 5); // untitled
+        let titles = |sort| -> Vec<String> {
+            list(&conn, None, sort)
+                .unwrap()
+                .into_iter()
+                .map(|b| if b.title.is_empty() { b.url } else { b.title })
+                .collect()
+        };
+
+        assert_eq!(
+            titles(BookmarkSort::Manual),
+            ["b", "A", "c", "https://z.com"]
+        );
+        // The untitled one sorts by its URL, "https://z.com", so after "c".
+        assert_eq!(
+            titles(BookmarkSort::Title),
+            ["A", "b", "c", "https://z.com"]
+        );
+        assert_eq!(
+            titles(BookmarkSort::Added),
+            ["c", "b", "https://z.com", "A"]
+        );
+        assert_eq!(
+            titles(BookmarkSort::LastOpened),
+            ["A", "https://z.com", "b", "c"]
+        );
+        // Equal counts: the more recently opened first.
+        assert_eq!(
+            titles(BookmarkSort::MostOpened),
+            ["https://z.com", "b", "A", "c"]
+        );
+
+        let parsed: BookmarkSort = serde_json::from_str(r#""lastOpened""#).unwrap();
+        assert_eq!(parsed, BookmarkSort::LastOpened);
     }
 
     #[test]

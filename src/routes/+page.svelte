@@ -13,7 +13,8 @@
   import Settings from "#lib/components/Settings.svelte";
   import * as api from "#lib/api.js";
   import { backUp, count, exportHtml, startImport } from "#lib/data.js";
-  import { app } from "#lib/state.svelte.js";
+  import { app, SORTS } from "#lib/state.svelte.js";
+  import type { BookmarkSort } from "#lib/types.js";
   import { ui } from "#lib/ui.svelte.js";
 
   const searchShortcut = navigator.userAgent.includes("Mac") ? "⌘K" : "Ctrl K";
@@ -81,6 +82,17 @@
         <span class="notice" role="status">{ui.notice}</span>
       {/if}
       <div class="toolbar-actions">
+        <select
+          class="sort"
+          aria-label="Sort"
+          title="Sort bookmarks"
+          value={app.sort}
+          onchange={(e) => app.run(() => app.setSort(e.currentTarget.value as BookmarkSort))}
+        >
+          {#each SORTS as s (s.value)}
+            <option value={s.value}>{s.label}</option>
+          {/each}
+        </select>
         <button class="search" onclick={() => (ui.searching = true)} title="Search bookmarks">
           Search <kbd>{searchShortcut}</kbd>
         </button>
@@ -187,6 +199,10 @@
     flex: none;
     align-items: center;
     gap: 8px;
+  }
+
+  .sort {
+    color: var(--muted);
   }
 
   .search {

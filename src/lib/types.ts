@@ -29,6 +29,9 @@ export interface Bookmark {
   tags: string[];
 }
 
+/** Order of the bookmark list. "manual" = drag-and-drop order. */
+export type BookmarkSort = "manual" | "title" | "added" | "lastOpened" | "mostOpened";
+
 export interface NewBookmark {
   folderId: number | null;
   title: string;

@@ -78,6 +78,7 @@ class Ui {
     if (resolved && app.openDirect && !forcePicker) {
       try {
         await api.openUrl(bookmark.id, resolved.target);
+        app.refreshAfterOpen();
         return;
       } catch (e) {
         // E.g. the default browser was uninstalled: let the user pick another.

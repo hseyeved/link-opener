@@ -22,7 +22,12 @@ pub const BACKUP_VERSION: u32 = 1;
 const MAX_FILE_BYTES: u64 = 200 * 1024 * 1024;
 
 /// Settings that belong to the library (restored with it), not to this machine.
-const LIBRARY_SETTINGS: [&str; 3] = ["unfiled_name", "open_direct", settings::BROWSER_PREFS];
+const LIBRARY_SETTINGS: [&str; 4] = [
+    "unfiled_name",
+    "open_direct",
+    settings::BROWSER_PREFS,
+    settings::BOOKMARK_SORT,
+];
 
 /// Folders and bookmarks, independent of database ids.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -512,6 +517,7 @@ mod tests {
         // A real (tiny) PNG for the favicon, so it survives the content check on restore.
         let png = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR....";
         fs::write(dir.path().join(ICON), png).unwrap();
+        settings::set(&source, settings::BOOKMARK_SORT, "title").unwrap();
 
         let backup = create_backup(&source, dir.path()).unwrap();
         assert_eq!(backup.favicons.len(), 1);
@@ -534,6 +540,16 @@ mod tests {
         .unwrap();
         assert_eq!((summary.folders_created, summary.bookmarks_added), (2, 3));
         assert_eq!(snapshot(&target), snapshot(&source));
+        let ImportSource::Backup(restored) = &source_file else {
+            unreachable!()
+        };
+        restore_settings(&target, restored).unwrap();
+        assert_eq!(
+            settings::get(&target, settings::BOOKMARK_SORT)
+                .unwrap()
+                .as_deref(),
+            Some("title")
+        );
 
         // Default target and favicon came along; the old tag is gone.
         let work = folders::list_all(&target)
@@ -644,7 +660,11 @@ mod tests {
         assert!(paths.contains(&("Imported bookmarks/Bar", "https://a.example/")));
         assert!(paths.contains(&("Imported bookmarks", "https://top.example/")));
         // Nothing went to Unfiled.
-        assert!(bookmarks::list(&conn, None).unwrap().is_empty());
+        assert!(
+            bookmarks::list(&conn, None, bookmarks::BookmarkSort::Manual)
+                .unwrap()
+                .is_empty()
+        );
         let icon = search::search(&conn, "icon.example", 5).unwrap()[0]
             .favicon
             .clone();

@@ -92,6 +92,7 @@
     const where = remember;
     const opened = bookmark;
     onclose();
+    app.refreshAfterOpen();
     // The link is already open; a failure to save the default goes to the main error banner.
     if (where) await app.run(() => saveDefault(opened, target, where));
   }

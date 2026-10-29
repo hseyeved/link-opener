@@ -51,8 +51,10 @@
     }
   }
 
+  // Rows stay draggable onto tree folders and out to other apps even when the list can't
+  // be reordered; they just don't accept drops.
   function ondragover(e: DragEvent, b: Bookmark) {
-    if (dnd.item?.kind !== "bookmark" || dnd.item.id === b.id) {
+    if (!app.canReorder || dnd.item?.kind !== "bookmark" || dnd.item.id === b.id) {
       dropAt = null;
       return;
     }
@@ -66,7 +68,7 @@
     const after = pointerFraction(e) > 0.5;
     dropAt = null;
     dnd.item = null;
-    if (item?.kind !== "bookmark" || item.id === b.id) return;
+    if (!app.canReorder || item?.kind !== "bookmark" || item.id === b.id) return;
     e.preventDefault();
     // Index among the folder's bookmarks, not counting the dragged one.
     const others = app.bookmarks.filter((x) => x.id !== item.id);

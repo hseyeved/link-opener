@@ -10,6 +10,8 @@ pub const GLOBAL_SHORTCUT: &str = "global_shortcut";
 pub const BROWSER_PREFS: &str = "browser_prefs";
 /// "false" = closing the window quits; anything else hides it to the tray.
 pub const CLOSE_TO_TRAY: &str = "close_to_tray";
+/// Order of the bookmark list, as a `BookmarkSort` name ("manual", "title", …).
+pub const BOOKMARK_SORT: &str = "bookmark_sort";
 
 pub fn get(conn: &Connection, key: &str) -> AppResult<Option<String>> {
     Ok(conn

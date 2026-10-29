@@ -7,6 +7,7 @@ import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialo
 import type {
   Bookmark,
   BookmarkPatch,
+  BookmarkSort,
   Browser,
   BrowserPrefs,
   DesktopSettings,
@@ -32,8 +33,8 @@ export const renameFolder = (id: number, name: string) =>
 
 export const deleteFolder = (id: number) => invoke<void>("delete_folder", { id });
 
-export const listBookmarks = (folderId: number | null) =>
-  invoke<Bookmark[]>("list_bookmarks", { folderId });
+export const listBookmarks = (folderId: number | null, sort: BookmarkSort = "manual") =>
+  invoke<Bookmark[]>("list_bookmarks", { folderId, sort });
 
 /** Other bookmarks with the same URL (ignoring a trailing slash), not counting `excludeId`. */
 export const findBookmarksByUrl = (url: string, excludeId: number | null) =>

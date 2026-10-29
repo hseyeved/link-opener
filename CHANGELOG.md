@@ -12,6 +12,9 @@ All notable changes to Link Opener. The format follows
   result's link.
 - The bookmark editor warns when the URL is already saved, and **Show** jumps to the other
   bookmark. Saving isn't blocked.
+- Sort bookmarks by title, date added, last opened or most opened, from the toolbar. The choice
+  applies to every folder and is kept in backups. Drag-and-drop reordering works in manual
+  order only.
 
 ### Changed
 
