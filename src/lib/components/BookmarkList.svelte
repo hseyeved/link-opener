@@ -124,6 +124,7 @@
             aria-label="Move to…"
             onclick={() => (ui.moving = { kind: "bookmark", bookmark: b })}>⇄</button
           >
+          <button class="icon" title="Copy link" aria-label="Copy link" onclick={() => ui.copyLink(b)}>⧉</button>
           <ConfirmButton label="✕" title="Delete bookmark" onconfirm={() => remove(b.id)} />
         </span>
       </li>

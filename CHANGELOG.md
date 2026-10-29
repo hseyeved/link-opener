@@ -4,6 +4,13 @@ All notable changes to Link Opener. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- A **Copy link** button on each bookmark, and Ctrl/Cmd+Shift+C in search to copy the selected
+  result's link.
+
 ## [0.3.2] - 2026-10-29
 
 ### Changed

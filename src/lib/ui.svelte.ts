@@ -49,6 +49,10 @@ class Ui {
     this.importing = null;
   }
 
+  async copyLink(bookmark: Bookmark) {
+    if (await app.run(() => api.copyText(bookmark.url))) this.notify("Copied link.");
+  }
+
   /** Opens with the bookmark's default browser if it has one (and opening directly is on),
    * else shows the picker. `forcePicker` (Shift) always shows the picker. */
   async open(bookmark: Bookmark, forcePicker = false) {
