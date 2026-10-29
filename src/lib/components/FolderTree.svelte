@@ -1,7 +1,7 @@
 <script lang="ts">
-  import * as api from "$lib/api";
-  import { dnd } from "$lib/dnd.svelte";
-  import { app } from "$lib/state.svelte";
+  import * as api from "#lib/api.js";
+  import { dnd } from "#lib/dnd.svelte.js";
+  import { app } from "#lib/state.svelte.js";
   import FolderNode from "./FolderNode.svelte";
   import InlineInput from "./InlineInput.svelte";
 

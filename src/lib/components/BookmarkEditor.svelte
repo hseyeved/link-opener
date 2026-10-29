@@ -1,10 +1,10 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { focus } from "$lib/actions";
-  import * as api from "$lib/api";
-  import { app, errorMessage } from "$lib/state.svelte";
-  import { describeTarget } from "$lib/targets";
-  import type { Bookmark, LaunchTarget } from "$lib/types";
+  import { focus } from "#lib/actions.js";
+  import * as api from "#lib/api.js";
+  import { app, errorMessage } from "#lib/state.svelte.js";
+  import { describeTarget } from "#lib/targets.js";
+  import type { Bookmark, LaunchTarget } from "#lib/types.js";
   import Favicon from "./Favicon.svelte";
   import TagInput from "./TagInput.svelte";
   import TargetSelect from "./TargetSelect.svelte";

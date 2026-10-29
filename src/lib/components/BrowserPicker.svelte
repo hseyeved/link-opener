@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount, tick, untrack } from "svelte";
-  import * as api from "$lib/api";
-  import { app, errorMessage } from "$lib/state.svelte";
-  import { describeTarget, findOption, optionKey, targetOptions, toTarget } from "$lib/targets";
-  import type { Bookmark, LaunchTarget, ResolvedTarget } from "$lib/types";
-  import { ui } from "$lib/ui.svelte";
+  import * as api from "#lib/api.js";
+  import { app, errorMessage } from "#lib/state.svelte.js";
+  import { describeTarget, findOption, optionKey, targetOptions, toTarget } from "#lib/targets.js";
+  import type { Bookmark, LaunchTarget, ResolvedTarget } from "#lib/types.js";
+  import { ui } from "#lib/ui.svelte.js";
 
   interface Props {
     bookmark: Bookmark;

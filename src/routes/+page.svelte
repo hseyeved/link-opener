@@ -1,20 +1,20 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import BookmarkEditor from "$lib/components/BookmarkEditor.svelte";
-  import BookmarkList from "$lib/components/BookmarkList.svelte";
-  import BrowserManager from "$lib/components/BrowserManager.svelte";
-  import BrowserPicker from "$lib/components/BrowserPicker.svelte";
-  import CommandPalette from "$lib/components/CommandPalette.svelte";
-  import FolderTargetDialog from "$lib/components/FolderTargetDialog.svelte";
-  import FolderTree from "$lib/components/FolderTree.svelte";
-  import Menu from "$lib/components/Menu.svelte";
-  import MoveDialog from "$lib/components/MoveDialog.svelte";
-  import ImportDialog from "$lib/components/ImportDialog.svelte";
-  import Settings from "$lib/components/Settings.svelte";
-  import * as api from "$lib/api";
-  import { backUp, count, exportHtml, startImport } from "$lib/data";
-  import { app } from "$lib/state.svelte";
-  import { ui } from "$lib/ui.svelte";
+  import BookmarkEditor from "#lib/components/BookmarkEditor.svelte";
+  import BookmarkList from "#lib/components/BookmarkList.svelte";
+  import BrowserManager from "#lib/components/BrowserManager.svelte";
+  import BrowserPicker from "#lib/components/BrowserPicker.svelte";
+  import CommandPalette from "#lib/components/CommandPalette.svelte";
+  import FolderTargetDialog from "#lib/components/FolderTargetDialog.svelte";
+  import FolderTree from "#lib/components/FolderTree.svelte";
+  import Menu from "#lib/components/Menu.svelte";
+  import MoveDialog from "#lib/components/MoveDialog.svelte";
+  import ImportDialog from "#lib/components/ImportDialog.svelte";
+  import Settings from "#lib/components/Settings.svelte";
+  import * as api from "#lib/api.js";
+  import { backUp, count, exportHtml, startImport } from "#lib/data.js";
+  import { app } from "#lib/state.svelte.js";
+  import { ui } from "#lib/ui.svelte.js";
 
   const searchShortcut = navigator.userAgent.includes("Mac") ? "⌘K" : "Ctrl K";
 

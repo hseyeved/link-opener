@@ -1,8 +1,8 @@
 <script lang="ts">
-  import * as api from "$lib/api";
-  import { count } from "$lib/data";
-  import { app, errorMessage } from "$lib/state.svelte";
-  import type { ImportMode, ImportPreview, ImportSummary } from "$lib/types";
+  import * as api from "#lib/api.js";
+  import { count } from "#lib/data.js";
+  import { app, errorMessage } from "#lib/state.svelte.js";
+  import type { ImportMode, ImportPreview, ImportSummary } from "#lib/types.js";
 
   let { path, preview, onclose }: { path: string; preview: ImportPreview; onclose: () => void } = $props();
 

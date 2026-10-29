@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { app } from "$lib/state.svelte";
-  import { describeTarget, optionKey, optionLabel, targetOptions, toTarget } from "$lib/targets";
-  import type { LaunchTarget } from "$lib/types";
+  import { app } from "#lib/state.svelte.js";
+  import { describeTarget, optionKey, optionLabel, targetOptions, toTarget } from "#lib/targets.js";
+  import type { LaunchTarget } from "#lib/types.js";
 
   interface Props {
     /** `null` = no default of its own. */
