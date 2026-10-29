@@ -86,16 +86,16 @@
   // when editing, then debounced as the URL changes.
   let duplicates = $state<Bookmark[]>([]);
   let dupSeq = 0;
-  let dupChecked = false;
+  let firstCheck = true;
   $effect(() => {
     const u = url;
     const mine = ++dupSeq;
+    const delay = firstCheck ? 0 : 400;
+    firstCheck = false;
     if (!u.trim()) {
       duplicates = [];
       return;
     }
-    const delay = dupChecked ? 400 : 0;
-    dupChecked = true;
     const timer = setTimeout(async () => {
       try {
         const found = await api.findBookmarksByUrl(u, initial.bookmark?.id ?? null);
@@ -196,8 +196,8 @@
         <div class="duplicates" role="status">
           {#each duplicates as d (d.id)}
             <small>
-              Also saved in <strong>{app.folderPath(d.folderId)}</strong>{#if d.title}
-                as “{d.title}”{/if}.
+              Also saved in <strong>{app.folderPath(d.folderId)}</strong
+              >{#if d.title}{" "}as “{d.title}”{/if}.
               <button type="button" class="link" onclick={() => ui.reveal(d)}>Show</button>
             </small>
           {/each}
