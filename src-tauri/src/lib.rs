@@ -97,6 +97,7 @@ pub fn run() {
             commands::delete_folder,
             commands::list_bookmarks,
             commands::find_bookmarks_by_url,
+            commands::list_activity,
             commands::create_bookmark,
             commands::update_bookmark,
             commands::delete_bookmark,

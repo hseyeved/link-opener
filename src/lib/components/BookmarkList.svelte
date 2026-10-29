@@ -74,14 +74,14 @@
     const others = app.bookmarks.filter((x) => x.id !== item.id);
     const index = others.findIndex((x) => x.id === b.id) + (after ? 1 : 0);
     await app.run(async () => {
-      await api.moveBookmark(item.id, app.selectedFolderId, index);
+      await api.moveBookmark(item.id, app.folderId, index);
       await app.reloadBookmarks();
     });
   }
 </script>
 
 {#if app.bookmarks.length === 0}
-  <p class="empty">No bookmarks here yet.</p>
+  <p class="empty">{app.isVirtual ? "Nothing opened yet." : "No bookmarks here yet."}</p>
 {:else}
   <ul class="bookmarks" bind:this={list}>
     {#each app.bookmarks as b (b.id)}
@@ -114,6 +114,12 @@
           >
           <div class="meta">
             <span class="host" title={b.url}>{h}</span>
+            {#if app.isVirtual}
+              <span class="folder" title="Folder">{app.folderPath(b.folderId)}</span>
+            {/if}
+            {#if app.selection.kind === "frequent"}
+              <span class="count" title="Times opened">{b.openCount}×</span>
+            {/if}
             {#if b.defaultTarget}
               <span class="target" title="Default browser">↗ {describeTarget(b.defaultTarget, app.browsers)}</span>
             {/if}
@@ -217,7 +223,9 @@
   }
 
   .notes::before,
-  .target::before {
+  .target::before,
+  .folder::before,
+  .count::before {
     content: "·";
     margin: 0 6px;
   }

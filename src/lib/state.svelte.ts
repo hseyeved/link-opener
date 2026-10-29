@@ -1,6 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import * as api from "./api";
-import type { Bookmark, BookmarkSort, Browser, Folder, LaunchTarget } from "./types";
+import type { Activity, Bookmark, BookmarkSort, Browser, Folder, LaunchTarget } from "./types";
 
 export interface FolderNode extends Folder {
   children: FolderNode[];
@@ -53,10 +53,18 @@ function parseSort(value: string | null): BookmarkSort {
   return SORTS.find((s) => s.value === value)?.value ?? "manual";
 }
 
+/** What the main list shows: a folder (`id: null` = Unfiled), or a view across all folders. */
+export type Selection = { kind: "folder"; id: number | null } | { kind: Activity };
+
+export const UNFILED: Selection = { kind: "folder", id: null };
+
+function sameSelection(a: Selection, b: Selection): boolean {
+  return a.kind === "folder" && b.kind === "folder" ? a.id === b.id : a.kind === b.kind;
+}
+
 class AppState {
   folders = $state<Folder[]>([]);
-  /** `null` = Unfiled. */
-  selectedFolderId = $state<number | null>(null);
+  selection = $state<Selection>(UNFILED);
   bookmarks = $state<Bookmark[]>([]);
   error = $state<string | null>(null);
   /** `null` until first loaded. */
@@ -65,12 +73,24 @@ class AppState {
   unfiledName = $state(DEFAULT_UNFILED_NAME);
   /** Order of the bookmark list, for every folder. Stored as a setting. */
   sort = $state<BookmarkSort>("manual");
-  /** Dragging bookmarks to reorder them only makes sense in manual order. */
-  canReorder = $derived(this.sort === "manual");
+
+  /** Recent or Most used rather than a folder. */
+  isVirtual = $derived(this.selection.kind !== "folder");
+  /** The selected folder (`null` = Unfiled, and also in Recent/Most used). */
+  folderId = $derived(this.selection.kind === "folder" ? this.selection.id : null);
+  selectedFolder = $derived(this.folders.find((f) => f.id === this.folderId) ?? null);
+  viewTitle = $derived(
+    this.selection.kind === "recent"
+      ? "Recent"
+      : this.selection.kind === "frequent"
+        ? "Most used"
+        : (this.selectedFolder?.name ?? this.unfiledName),
+  );
+  /** Dragging bookmarks to reorder them only makes sense in a folder's manual order. */
+  canReorder = $derived(!this.isVirtual && this.sort === "manual");
 
   tree = $derived(buildTree(this.folders));
   flatFolders = $derived(flatten(this.tree));
-  selectedFolder = $derived(this.folders.find((f) => f.id === this.selectedFolderId) ?? null);
   #foldersById = $derived(new Map(this.folders.map((f) => [f.id, f])));
 
   /** Absolute path of the favicons dir; empty until loaded. */
@@ -141,19 +161,28 @@ class AppState {
 
   async reloadFolders() {
     this.folders = await api.listFolders();
-    if (this.selectedFolderId !== null && !this.folders.some((f) => f.id === this.selectedFolderId)) {
-      await this.select(null);
+    // Only a deleted folder falls back to Unfiled; Recent and Most used stay put.
+    const sel = this.selection;
+    if (sel.kind === "folder" && sel.id !== null && !this.folders.some((f) => f.id === sel.id)) {
+      await this.select(UNFILED);
     }
   }
 
   async reloadBookmarks() {
-    const { selectedFolderId: folderId, sort } = this;
-    const bookmarks = await api.listBookmarks(folderId, sort);
+    const { selection, sort } = this;
+    const bookmarks =
+      selection.kind === "folder"
+        ? await api.listBookmarks(selection.id, sort)
+        : await api.listActivity(selection.kind);
     // Ignore a stale response if the selection or order changed meanwhile.
-    if (folderId === this.selectedFolderId && sort === this.sort) this.bookmarks = bookmarks;
+    if (sameSelection(selection, this.selection) && sort === this.sort) this.bookmarks = bookmarks;
   }
 
-  /** Opening a bookmark changes its open count and time, which some orders depend on.
+  isSelected(selection: Selection): boolean {
+    return sameSelection(selection, this.selection);
+  }
+
+  /** Opening a bookmark changes its open count and time, which some orders and views depend on.
    * In the background: the link is already open, so a failure here isn't worth reporting. */
   refreshAfterOpen() {
     this.reloadBookmarks().catch(() => {});
@@ -163,8 +192,8 @@ class AppState {
     this.browsers = await api.listBrowsers(refresh);
   }
 
-  async select(folderId: number | null) {
-    this.selectedFolderId = folderId;
+  async select(selection: Selection) {
+    this.selection = selection;
     await this.reloadBookmarks();
   }
 

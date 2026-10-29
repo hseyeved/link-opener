@@ -5,6 +5,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import type {
+  Activity,
   Bookmark,
   BookmarkPatch,
   BookmarkSort,
@@ -35,6 +36,10 @@ export const deleteFolder = (id: number) => invoke<void>("delete_folder", { id }
 
 export const listBookmarks = (folderId: number | null, sort: BookmarkSort = "manual") =>
   invoke<Bookmark[]>("list_bookmarks", { folderId, sort });
+
+/** Opened bookmarks across all folders: most recent first, or most opened first. */
+export const listActivity = (kind: Activity, limit?: number) =>
+  invoke<Bookmark[]>("list_activity", { kind, limit });
 
 /** Other bookmarks with the same URL (ignoring a trailing slash), not counting `excludeId`. */
 export const findBookmarksByUrl = (url: string, excludeId: number | null) =>

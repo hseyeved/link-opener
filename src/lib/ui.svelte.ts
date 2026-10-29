@@ -55,7 +55,7 @@ class Ui {
   /** Closes any dialog and shows the bookmark in its folder, highlighted. */
   async reveal(bookmark: Bookmark) {
     this.closeAll();
-    if (!(await app.run(() => app.select(bookmark.folderId)))) return;
+    if (!(await app.run(() => app.select({ kind: "folder", id: bookmark.folderId })))) return;
     clearTimeout(this.#highlightTimer);
     this.highlightId = bookmark.id;
     this.#highlightTimer = setTimeout(() => (this.highlightId = null), 2000);

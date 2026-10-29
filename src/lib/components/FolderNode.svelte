@@ -98,14 +98,14 @@
 <li>
   <div
     class="row"
-    class:selected={app.selectedFolderId === node.id}
+    class:selected={app.isSelected({ kind: "folder", id: node.id })}
     class:drop-before={zone === "before"}
     class:drop-after={zone === "after"}
     class:drop-into={zone === "into"}
     style:padding-left={indent(depth)}
     draggable={mode === null}
     role="treeitem"
-    aria-selected={app.selectedFolderId === node.id}
+    aria-selected={app.isSelected({ kind: "folder", id: node.id })}
     tabindex="-1"
     {ondragstart}
     ondragend={() => {
@@ -135,7 +135,7 @@
         title={node.defaultTarget
           ? `${node.name} — opens in ${describeTarget(node.defaultTarget, app.browsers)}`
           : node.name}
-        onclick={() => app.run(() => app.select(node.id))}
+        onclick={() => app.run(() => app.select({ kind: "folder", id: node.id }))}
         ondblclick={() => (mode = "rename")}
         >{node.name}{#if node.defaultTarget}<span class="has-target" aria-label="has a default browser">
             ●</span

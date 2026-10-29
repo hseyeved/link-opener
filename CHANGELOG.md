@@ -15,6 +15,8 @@ All notable changes to Link Opener. The format follows
 - Sort bookmarks by title, date added, last opened or most opened, from the toolbar. The choice
   applies to every folder and is kept in backups. Drag-and-drop reordering works in manual
   order only.
+- **Recent** and **Most used** in the sidebar list the bookmarks you've opened, across all folders,
+  with each one's folder (and, in Most used, how many times it was opened).
 
 ### Changed
 

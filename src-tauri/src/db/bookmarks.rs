@@ -158,6 +158,39 @@ pub fn list(
     Ok(bookmarks)
 }
 
+/// The Recent and Most used views, across all folders.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Activity {
+    /// Most recently opened first.
+    Recent,
+    /// Highest open count first, then most recently opened.
+    Frequent,
+}
+
+/// Up to `limit` bookmarks that have been opened, in `kind` order. Never-opened bookmarks
+/// are left out.
+pub fn list_activity(conn: &Connection, kind: Activity, limit: usize) -> AppResult<Vec<Bookmark>> {
+    let (filter, order) = match kind {
+        Activity::Recent => (
+            "b.last_opened_at IS NOT NULL",
+            "b.last_opened_at DESC, b.id",
+        ),
+        Activity::Frequent => (
+            "b.open_count > 0",
+            "b.open_count DESC, b.last_opened_at DESC, b.id",
+        ),
+    };
+    let mut stmt = conn.prepare_cached(&format!(
+        "SELECT {COLUMNS} FROM bookmarks b WHERE {filter} ORDER BY {order} LIMIT ?1"
+    ))?;
+    let limit = limit.clamp(1, super::search::MAX_LIMIT) as i64;
+    let bookmarks = stmt
+        .query_map([limit], Bookmark::from_row)?
+        .collect::<Result<_, _>>()?;
+    Ok(bookmarks)
+}
+
 /// Every bookmark, by folder then position.
 pub fn list_all(conn: &Connection) -> AppResult<Vec<Bookmark>> {
     let mut stmt = conn.prepare(&format!(
@@ -835,6 +868,39 @@ mod tests {
 
         let parsed: BookmarkSort = serde_json::from_str(r#""lastOpened""#).unwrap();
         assert_eq!(parsed, BookmarkSort::LastOpened);
+    }
+
+    #[test]
+    fn activity_lists() {
+        let conn = open_in_memory().unwrap();
+        let f = folders::create(&conn, None, "F").unwrap();
+        let a = create(&conn, new(None, "a", "a.com")).unwrap();
+        let b = create(&conn, new(Some(f.id), "b", "b.com")).unwrap();
+        let c = create(&conn, new(None, "c", "c.com")).unwrap();
+        create(&conn, new(None, "never", "never.com")).unwrap();
+        let set = |id: i64, opened: i64, count: i64| {
+            conn.execute(
+                "UPDATE bookmarks SET last_opened_at = ?2, open_count = ?3 WHERE id = ?1",
+                params![id, opened, count],
+            )
+            .unwrap();
+        };
+        set(a.id, 300, 1);
+        set(b.id, 100, 4);
+        set(c.id, 200, 4);
+        let ids = |kind, limit| -> Vec<i64> {
+            list_activity(&conn, kind, limit)
+                .unwrap()
+                .into_iter()
+                .map(|b| b.id)
+                .collect()
+        };
+
+        assert_eq!(ids(Activity::Recent, 50), [a.id, c.id, b.id]);
+        // Equal counts: the more recently opened first.
+        assert_eq!(ids(Activity::Frequent, 50), [c.id, b.id, a.id]);
+        assert_eq!(ids(Activity::Recent, 2), [a.id, c.id]);
+        assert_eq!(ids(Activity::Frequent, 1), [c.id]);
     }
 
     #[test]

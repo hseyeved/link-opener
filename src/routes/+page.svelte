@@ -77,22 +77,25 @@
 
   <main class="main">
     <header class="toolbar">
-      <h1>{app.selectedFolder?.name ?? app.unfiledName}</h1>
+      <h1>{app.viewTitle}</h1>
       {#if ui.notice}
         <span class="notice" role="status">{ui.notice}</span>
       {/if}
       <div class="toolbar-actions">
-        <select
-          class="sort"
-          aria-label="Sort"
-          title="Sort bookmarks"
-          value={app.sort}
-          onchange={(e) => app.run(() => app.setSort(e.currentTarget.value as BookmarkSort))}
-        >
-          {#each SORTS as s (s.value)}
-            <option value={s.value}>{s.label}</option>
-          {/each}
-        </select>
+        <!-- Recent and Most used have their own fixed order. -->
+        {#if !app.isVirtual}
+          <select
+            class="sort"
+            aria-label="Sort"
+            title="Sort bookmarks"
+            value={app.sort}
+            onchange={(e) => app.run(() => app.setSort(e.currentTarget.value as BookmarkSort))}
+          >
+            {#each SORTS as s (s.value)}
+              <option value={s.value}>{s.label}</option>
+            {/each}
+          </select>
+        {/if}
         <button class="search" onclick={() => (ui.searching = true)} title="Search bookmarks">
           Search <kbd>{searchShortcut}</kbd>
         </button>
@@ -128,7 +131,7 @@
 {/if}
 
 {#if ui.editing}
-  <BookmarkEditor bookmark={ui.editing.bookmark} folderId={app.selectedFolderId} onclose={() => (ui.editing = null)} />
+  <BookmarkEditor bookmark={ui.editing.bookmark} folderId={app.folderId} onclose={() => (ui.editing = null)} />
 {/if}
 
 {#if ui.moving}

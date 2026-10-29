@@ -136,6 +136,8 @@
           .then(() => app.reloadBookmarks())
           .catch(() => {});
       }
+      // Recent and Most used won't list a new bookmark, so say where it went.
+      if (isNew && app.isVirtual) ui.notify(`Added to ${app.folderPath(saved.folderId)}.`);
       onclose();
     } catch (e) {
       error = errorMessage(e);

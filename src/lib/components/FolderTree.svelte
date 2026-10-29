@@ -1,9 +1,15 @@
 <script lang="ts">
   import * as api from "#lib/api.js";
   import { dnd } from "#lib/dnd.svelte.js";
-  import { app } from "#lib/state.svelte.js";
+  import { app, UNFILED } from "#lib/state.svelte.js";
+  import type { Activity } from "#lib/types.js";
   import FolderNode from "./FolderNode.svelte";
   import InlineInput from "./InlineInput.svelte";
+
+  const VIEWS: { kind: Activity; icon: string; label: string }[] = [
+    { kind: "recent", icon: "◷", label: "Recent" },
+    { kind: "frequent", icon: "★", label: "Most used" },
+  ];
 
   let adding = $state(false);
   let renamingUnfiled = $state(false);
@@ -33,12 +39,27 @@
     await app.run(async () => {
       const folder = await api.createFolder(null, name);
       await app.reloadFolders();
-      await app.select(folder.id);
+      await app.select({ kind: "folder", id: folder.id });
     });
   }
 </script>
 
 <nav class="tree">
+  <!-- Views across all folders: nothing can be dropped on them and they have no actions. -->
+  <div class="views">
+    {#each VIEWS as view (view.kind)}
+      {@const selected = app.isSelected({ kind: view.kind })}
+      <div class="row" class:selected>
+        <span class="twisty" aria-hidden="true">{view.icon}</span>
+        <button
+          class="name"
+          aria-current={selected ? "page" : undefined}
+          onclick={() => app.run(() => app.select({ kind: view.kind }))}>{view.label}</button
+        >
+      </div>
+    {/each}
+  </div>
+
   <div class="tree-header">
     <span>Folders</span>
     <button class="icon" title="New folder" aria-label="New folder" onclick={() => (adding = true)}>+</button>
@@ -46,10 +67,10 @@
 
   <div
     class="row"
-    class:selected={app.selectedFolderId === null}
+    class:selected={app.isSelected(UNFILED)}
     class:drop-into={dropTarget}
     role="treeitem"
-    aria-selected={app.selectedFolderId === null}
+    aria-selected={app.isSelected(UNFILED)}
     tabindex="-1"
     ondragover={(e) => {
       if (!dnd.item) return;
@@ -66,7 +87,7 @@
       <button
         class="name"
         title={app.unfiledName}
-        onclick={() => app.run(() => app.select(null))}
+        onclick={() => app.run(() => app.select(UNFILED))}
         ondblclick={() => (renamingUnfiled = true)}>{app.unfiledName}</button
       >
       <span class="actions">
@@ -93,6 +114,10 @@
     flex-direction: column;
     padding: 8px 6px;
     font-size: 13px;
+  }
+
+  .views {
+    margin-bottom: 10px;
   }
 
   .tree-header {
