@@ -35,7 +35,11 @@ export const deleteFolder = (id: number) => invoke<void>("delete_folder", { id }
 export const listBookmarks = (folderId: number | null) =>
   invoke<Bookmark[]>("list_bookmarks", { folderId });
 
-export const createBookmark = (bookmark: NewBookmark) =>
+/** Other bookmarks with the same URL (ignoring a trailing slash), not counting `excludeId`. */
+export const findBookmarksByUrl = (url: string, excludeId: number | null) =>
+  invoke<Bookmark[]>("find_bookmarks_by_url", { url, excludeId });
+
+export const createBookmark =(bookmark: NewBookmark) =>
   invoke<Bookmark>("create_bookmark", { bookmark });
 
 export const updateBookmark = (id: number, patch: BookmarkPatch) =>

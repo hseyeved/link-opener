@@ -10,6 +10,14 @@ All notable changes to Link Opener. The format follows
 
 - A **Copy link** button on each bookmark, and Ctrl/Cmd+Shift+C in search to copy the selected
   result's link.
+- The bookmark editor warns when the URL is already saved, and **Show** jumps to the other
+  bookmark. Saving isn't blocked.
+
+### Changed
+
+- Import's "skip duplicates" uses the same rule as the editor's warning, so a URL that differs
+  only by a trailing slash (`https://example.com/` and `https://example.com`) now counts as a
+  duplicate.
 
 ## [0.3.2] - 2026-10-29
 

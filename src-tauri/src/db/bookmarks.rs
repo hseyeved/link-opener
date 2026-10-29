@@ -128,6 +128,33 @@ pub fn list_all(conn: &Connection) -> AppResult<Vec<Bookmark>> {
     Ok(bookmarks)
 }
 
+/// Bookmarks with the same URL as `url` (normalized like a saved one), not counting
+/// `exclude_id`. A trailing slash doesn't make a URL different. At most 10, oldest first;
+/// input that isn't a valid URL matches nothing.
+pub fn find_by_url(
+    conn: &Connection,
+    url: &str,
+    exclude_id: Option<i64>,
+) -> AppResult<Vec<Bookmark>> {
+    let Ok(url) = normalize_url(url) else {
+        return Ok(Vec::new());
+    };
+    let mut stmt = conn.prepare_cached(&format!(
+        "SELECT {COLUMNS} FROM bookmarks b
+         WHERE rtrim(b.url, '/') = ?1 AND b.id IS NOT ?2 ORDER BY b.id LIMIT 10"
+    ))?;
+    let bookmarks = stmt
+        .query_map(params![url_key(&url), exclude_id], Bookmark::from_row)?
+        .collect::<Result<_, _>>()?;
+    Ok(bookmarks)
+}
+
+/// What two normalized URLs must share to count as the same: everything but trailing slashes
+/// (matches SQLite's `rtrim(url, '/')`).
+pub(crate) fn url_key(url: &str) -> &str {
+    url.trim_end_matches('/')
+}
+
 pub fn get(conn: &Connection, id: i64) -> AppResult<Bookmark> {
     conn.query_row(
         &format!("SELECT {COLUMNS} FROM bookmarks b WHERE b.id = ?1"),
@@ -701,5 +728,34 @@ mod tests {
         }
         assert!(matches!(normalize_url(""), Err(AppError::Invalid(_))));
         assert!(matches!(normalize_url(" \t "), Err(AppError::Invalid(_))));
+    }
+
+    #[test]
+    fn find_by_url_matches_normalized_url() {
+        let conn = open_in_memory().unwrap();
+        let f = folders::create(&conn, None, "F").unwrap();
+        let a = create(&conn, new(None, "a", "https://example.com/")).unwrap();
+        let b = create(&conn, new(Some(f.id), "b", "example.com")).unwrap();
+        create(&conn, new(None, "other", "example.com/other")).unwrap();
+        create(&conn, new(None, "http", "http://example.com")).unwrap();
+        let ids = |url: &str, exclude| -> Vec<i64> {
+            find_by_url(&conn, url, exclude)
+                .unwrap()
+                .into_iter()
+                .map(|b| b.id)
+                .collect()
+        };
+
+        // Missing scheme, surrounding space and trailing slashes don't matter.
+        assert_eq!(ids("example.com", None), [a.id, b.id]);
+        assert_eq!(ids("  https://example.com//  ", None), [a.id, b.id]);
+        // The bookmark being edited isn't its own duplicate.
+        assert_eq!(ids("example.com", Some(a.id)), [b.id]);
+        // Nothing else is normalized: another path, another scheme.
+        assert_eq!(ids("example.com/other/", None).len(), 1);
+        assert_eq!(ids("example.com/x", None), Vec::<i64>::new());
+        assert_eq!(ids("HTTPS://example.com", None), Vec::<i64>::new());
+        assert_eq!(ids("   ", None), Vec::<i64>::new());
+        assert_eq!(ids("", None), Vec::<i64>::new());
     }
 }

@@ -352,13 +352,10 @@ pub fn import_library(
             summary.invalid_skipped += 1;
             continue;
         };
+        // Same rule as the editor's duplicate warning.
         if skip_duplicates && !replace {
-            let in_library: bool = tx.query_row(
-                "SELECT EXISTS(SELECT 1 FROM bookmarks WHERE url = ?1)",
-                [&url],
-                |r| r.get(0),
-            )?;
-            if in_library || !seen_urls.insert(url.clone()) {
+            let in_library = !bookmarks::find_by_url(&tx, &url, None)?.is_empty();
+            if in_library || !seen_urls.insert(bookmarks::url_key(&url).to_string()) {
                 summary.duplicates_skipped += 1;
                 continue;
             }
@@ -584,6 +581,30 @@ mod tests {
         // Without skipping, duplicates are added.
         let dupes = import_library(&target, &lib, ImportMode::Merge, false, None).unwrap();
         assert_eq!(dupes.bookmarks_added, 3);
+    }
+
+    #[test]
+    fn duplicates_ignore_trailing_slash() {
+        let conn = open_in_memory().unwrap();
+        add(&conn, None, "https://saved.example/", &[]);
+        let record = |url: &str| BookmarkRecord {
+            url: url.into(),
+            ..Default::default()
+        };
+        let lib = Library {
+            folders: vec![],
+            bookmarks: vec![
+                record("saved.example"),
+                record("https://new.example"),
+                record("https://new.example/"),
+                record("https://new.example/page"),
+            ],
+        };
+        let summary = import_library(&conn, &lib, ImportMode::Merge, true, None).unwrap();
+        assert_eq!(
+            (summary.bookmarks_added, summary.duplicates_skipped),
+            (2, 2)
+        );
     }
 
     #[test]

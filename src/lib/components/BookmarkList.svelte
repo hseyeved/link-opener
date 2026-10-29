@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import * as api from "#lib/api.js";
   import { dnd, pointerFraction } from "#lib/dnd.svelte.js";
   import { app } from "#lib/state.svelte.js";
@@ -10,6 +11,14 @@
 
   /** Row under the pointer while reordering, and which half of it. */
   let dropAt = $state<{ id: number; after: boolean } | null>(null);
+  let list = $state<HTMLElement>();
+
+  // Scroll to a revealed bookmark once its row has rendered.
+  $effect(() => {
+    const id = ui.highlightId;
+    if (id === null || !list) return;
+    tick().then(() => list?.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: "center" }));
+  });
 
   function ondblclick(e: MouseEvent, b: Bookmark) {
     // Double-clicking the title button would also open the picker twice; leave buttons alone.
@@ -72,13 +81,15 @@
 {#if app.bookmarks.length === 0}
   <p class="empty">No bookmarks here yet.</p>
 {:else}
-  <ul class="bookmarks">
+  <ul class="bookmarks" bind:this={list}>
     {#each app.bookmarks as b (b.id)}
       {@const h = host(b.url)}
       <!-- Double-click and dragging are mouse shortcuts; the Edit and Move buttons are the keyboard path. -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <li
         class="bookmark"
+        class:highlight={ui.highlightId === b.id}
+        data-id={b.id}
         class:drop-before={dropAt?.id === b.id && !dropAt.after}
         class:drop-after={dropAt?.id === b.id && dropAt.after}
         draggable="true"
@@ -157,6 +168,17 @@
 
   .bookmark:hover {
     background: var(--hover);
+  }
+
+  .bookmark.highlight {
+    animation: highlight 2s ease-out;
+  }
+
+  @keyframes highlight {
+    0%,
+    40% {
+      background: var(--accent-soft);
+    }
   }
 
 

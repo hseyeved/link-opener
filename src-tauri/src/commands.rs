@@ -40,6 +40,16 @@ pub fn list_bookmarks(db: State<'_, Db>, folder_id: Option<i64>) -> AppResult<Ve
     bookmarks::list(&db.conn(), folder_id)
 }
 
+/// Other bookmarks with the same URL, for the editor's duplicate warning.
+#[tauri::command]
+pub fn find_bookmarks_by_url(
+    db: State<'_, Db>,
+    url: String,
+    exclude_id: Option<i64>,
+) -> AppResult<Vec<Bookmark>> {
+    bookmarks::find_by_url(&db.conn(), &url, exclude_id)
+}
+
 #[tauri::command]
 pub fn create_bookmark(db: State<'_, Db>, bookmark: NewBookmark) -> AppResult<Bookmark> {
     bookmarks::create(&db.conn(), bookmark)

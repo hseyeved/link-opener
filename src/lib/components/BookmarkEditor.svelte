@@ -5,6 +5,7 @@
   import { app, errorMessage } from "#lib/state.svelte.js";
   import { describeTarget } from "#lib/targets.js";
   import type { Bookmark, LaunchTarget } from "#lib/types.js";
+  import { ui } from "#lib/ui.svelte.js";
   import Favicon from "./Favicon.svelte";
   import TagInput from "./TagInput.svelte";
   import TargetSelect from "./TargetSelect.svelte";
@@ -78,6 +79,31 @@
     // Don't fetch for the URL the bookmark already had.
     if (u === untrack(() => initial.bookmark?.url ?? "") || !fetchable(u)) return;
     const timer = setTimeout(() => fetchMeta(false), 700);
+    return () => clearTimeout(timer);
+  });
+
+  // Other bookmarks with this URL: a warning only, saving isn't blocked. Checked on open
+  // when editing, then debounced as the URL changes.
+  let duplicates = $state<Bookmark[]>([]);
+  let dupSeq = 0;
+  let dupChecked = false;
+  $effect(() => {
+    const u = url;
+    const mine = ++dupSeq;
+    if (!u.trim()) {
+      duplicates = [];
+      return;
+    }
+    const delay = dupChecked ? 400 : 0;
+    dupChecked = true;
+    const timer = setTimeout(async () => {
+      try {
+        const found = await api.findBookmarksByUrl(u, initial.bookmark?.id ?? null);
+        if (mine === dupSeq) duplicates = found;
+      } catch {
+        if (mine === dupSeq) duplicates = [];
+      }
+    }, delay);
     return () => clearTimeout(timer);
   });
 
@@ -163,6 +189,17 @@
         <small class="note">Fetching title and icon…</small>
       {:else if fetchNote}
         <small class="note">{fetchNote}</small>
+      {/if}
+      {#if duplicates.length}
+        <div class="duplicates" role="status">
+          {#each duplicates as d (d.id)}
+            <small>
+              Also saved in <strong>{app.folderPath(d.folderId)}</strong>{#if d.title}
+                as “{d.title}”{/if}.
+              <button type="button" class="link" onclick={() => ui.reveal(d)}>Show</button>
+            </small>
+          {/each}
+        </div>
       {/if}
     </div>
 
@@ -271,6 +308,33 @@
   .note {
     color: var(--muted);
     font-size: 12px;
+  }
+
+  .duplicates {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    background: var(--accent-soft);
+  }
+
+  .duplicates small {
+    font-size: 12px;
+  }
+
+  .link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: inherit;
+    text-decoration: underline;
+  }
+
+  .link:hover:not(:disabled) {
+    background: none;
   }
 
   .buttons {

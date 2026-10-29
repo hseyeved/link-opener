@@ -27,6 +27,9 @@ class Ui {
   /** Short-lived status text in the toolbar. */
   notice = $state<string | null>(null);
   #noticeTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Bookmark row to scroll to and briefly highlight. */
+  highlightId = $state<number | null>(null);
+  #highlightTimer: ReturnType<typeof setTimeout> | undefined;
 
   notify(text: string | null, ms = 5000) {
     clearTimeout(this.#noticeTimer);
@@ -47,6 +50,15 @@ class Ui {
     this.settingsOpen = false;
     this.browsersOpen = false;
     this.importing = null;
+  }
+
+  /** Closes any dialog and shows the bookmark in its folder, highlighted. */
+  async reveal(bookmark: Bookmark) {
+    this.closeAll();
+    if (!(await app.run(() => app.select(bookmark.folderId)))) return;
+    clearTimeout(this.#highlightTimer);
+    this.highlightId = bookmark.id;
+    this.#highlightTimer = setTimeout(() => (this.highlightId = null), 2000);
   }
 
   async copyLink(bookmark: Bookmark) {
