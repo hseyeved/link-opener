@@ -4,6 +4,13 @@ All notable changes to Link Opener. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.2] - 2026-10-29
+
+### Changed
+
+- Updated dependencies, including Tauri 2.12.2 and its plugins, `rustls` and `scraper`.
+- The frontend now builds with SvelteKit 3. Nothing changes in the app itself.
+
 ## [0.3.1] - 2026-10-08
 
 ### Changed
