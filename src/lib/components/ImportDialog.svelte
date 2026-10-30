@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as api from "#lib/api.js";
   import { count } from "#lib/data.js";
-  import { app, errorMessage } from "#lib/state.svelte.js";
+  import { app, errorMessage, UNFILED } from "#lib/state.svelte.js";
   import type { ImportMode, ImportPreview, ImportSummary } from "#lib/types.js";
 
   let { path, preview, onclose }: { path: string; preview: ImportPreview; onclose: () => void } = $props();
@@ -28,7 +28,7 @@
     try {
       result = await api.importFile(path, mode, skipDuplicates, isBackup ? null : folderName);
       // A replace can change settings (e.g. the Unfiled name) too, so reload everything.
-      await app.select(null);
+      await app.select(UNFILED);
       await app.init();
     } catch (e) {
       error = errorMessage(e);

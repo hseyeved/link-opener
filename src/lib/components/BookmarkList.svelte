@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import * as api from "#lib/api.js";
   import { dnd, pointerFraction } from "#lib/dnd.svelte.js";
   import { app } from "#lib/state.svelte.js";
@@ -10,6 +11,14 @@
 
   /** Row under the pointer while reordering, and which half of it. */
   let dropAt = $state<{ id: number; after: boolean } | null>(null);
+  let list = $state<HTMLElement>();
+
+  // Scroll to a revealed bookmark once its row has rendered.
+  $effect(() => {
+    const id = ui.highlightId;
+    if (id === null || !list) return;
+    tick().then(() => list?.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: "center" }));
+  });
 
   function ondblclick(e: MouseEvent, b: Bookmark) {
     // Double-clicking the title button would also open the picker twice; leave buttons alone.
@@ -42,8 +51,10 @@
     }
   }
 
+  // Rows stay draggable onto tree folders and out to other apps even when the list can't
+  // be reordered; they just don't accept drops.
   function ondragover(e: DragEvent, b: Bookmark) {
-    if (dnd.item?.kind !== "bookmark" || dnd.item.id === b.id) {
+    if (!app.canReorder || dnd.item?.kind !== "bookmark" || dnd.item.id === b.id) {
       dropAt = null;
       return;
     }
@@ -57,28 +68,30 @@
     const after = pointerFraction(e) > 0.5;
     dropAt = null;
     dnd.item = null;
-    if (item?.kind !== "bookmark" || item.id === b.id) return;
+    if (!app.canReorder || item?.kind !== "bookmark" || item.id === b.id) return;
     e.preventDefault();
     // Index among the folder's bookmarks, not counting the dragged one.
     const others = app.bookmarks.filter((x) => x.id !== item.id);
     const index = others.findIndex((x) => x.id === b.id) + (after ? 1 : 0);
     await app.run(async () => {
-      await api.moveBookmark(item.id, app.selectedFolderId, index);
+      await api.moveBookmark(item.id, app.folderId, index);
       await app.reloadBookmarks();
     });
   }
 </script>
 
 {#if app.bookmarks.length === 0}
-  <p class="empty">No bookmarks here yet.</p>
+  <p class="empty">{app.isVirtual ? "Nothing opened yet." : "No bookmarks here yet."}</p>
 {:else}
-  <ul class="bookmarks">
+  <ul class="bookmarks" bind:this={list}>
     {#each app.bookmarks as b (b.id)}
       {@const h = host(b.url)}
       <!-- Double-click and dragging are mouse shortcuts; the Edit and Move buttons are the keyboard path. -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <li
         class="bookmark"
+        class:highlight={ui.highlightId === b.id}
+        data-id={b.id}
         class:drop-before={dropAt?.id === b.id && !dropAt.after}
         class:drop-after={dropAt?.id === b.id && dropAt.after}
         draggable="true"
@@ -101,6 +114,12 @@
           >
           <div class="meta">
             <span class="host" title={b.url}>{h}</span>
+            {#if app.isVirtual}
+              <span class="folder" title="Folder">{app.folderPath(b.folderId)}</span>
+            {/if}
+            {#if app.selection.kind === "frequent"}
+              <span class="count" title="Times opened">{b.openCount}×</span>
+            {/if}
             {#if b.defaultTarget}
               <span class="target" title="Default browser">↗ {describeTarget(b.defaultTarget, app.browsers)}</span>
             {/if}
@@ -124,6 +143,7 @@
             aria-label="Move to…"
             onclick={() => (ui.moving = { kind: "bookmark", bookmark: b })}>⇄</button
           >
+          <button class="icon" title="Copy link" aria-label="Copy link" onclick={() => ui.copyLink(b)}>⧉</button>
           <ConfirmButton label="✕" title="Delete bookmark" onconfirm={() => remove(b.id)} />
         </span>
       </li>
@@ -156,6 +176,17 @@
 
   .bookmark:hover {
     background: var(--hover);
+  }
+
+  .bookmark.highlight {
+    animation: highlight 2s ease-out;
+  }
+
+  @keyframes highlight {
+    0%,
+    40% {
+      background: var(--accent-soft);
+    }
   }
 
 
@@ -192,7 +223,9 @@
   }
 
   .notes::before,
-  .target::before {
+  .target::before,
+  .folder::before,
+  .count::before {
     content: "·";
     margin: 0 6px;
   }

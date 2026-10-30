@@ -2,10 +2,13 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import type {
+  Activity,
   Bookmark,
   BookmarkPatch,
+  BookmarkSort,
   Browser,
   BrowserPrefs,
   DesktopSettings,
@@ -31,10 +34,18 @@ export const renameFolder = (id: number, name: string) =>
 
 export const deleteFolder = (id: number) => invoke<void>("delete_folder", { id });
 
-export const listBookmarks = (folderId: number | null) =>
-  invoke<Bookmark[]>("list_bookmarks", { folderId });
+export const listBookmarks = (folderId: number | null, sort: BookmarkSort = "manual") =>
+  invoke<Bookmark[]>("list_bookmarks", { folderId, sort });
 
-export const createBookmark = (bookmark: NewBookmark) =>
+/** Opened bookmarks across all folders: most recent first, or most opened first. */
+export const listActivity = (kind: Activity, limit?: number) =>
+  invoke<Bookmark[]>("list_activity", { kind, limit });
+
+/** Other bookmarks with the same URL (ignoring a trailing slash), not counting `excludeId`. */
+export const findBookmarksByUrl = (url: string, excludeId: number | null) =>
+  invoke<Bookmark[]>("find_bookmarks_by_url", { url, excludeId });
+
+export const createBookmark =(bookmark: NewBookmark) =>
   invoke<Bookmark>("create_bookmark", { bookmark });
 
 export const updateBookmark = (id: number, patch: BookmarkPatch) =>
@@ -142,6 +153,9 @@ export const inspectImport = (path: string) => invoke<ImportPreview>("inspect_im
 /** Browser files always merge, into a new top-level folder named `folderName`. */
 export const importFile = (path: string, mode: ImportMode, skipDuplicates: boolean, folderName: string | null) =>
   invoke<ImportSummary>("import_file", { path, mode, skipDuplicates, folderName });
+
+/** Puts `text` on the OS clipboard. */
+export const copyText = (text: string) => writeText(text);
 
 /** The app version from tauri.conf.json, e.g. "0.2.0". */
 export const appVersion = () => getVersion();

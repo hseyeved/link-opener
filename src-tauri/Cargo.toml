@@ -1,6 +1,6 @@
 [package]
 name = "link-opener"
-version = "0.3.2"
+version = "0.4.0"
 description = "Browser-independent bookmark library and link opener"
 authors = ["hseyeved"]
 license = "GPL-3.0-or-later"
@@ -31,6 +31,7 @@ scraper = "0.29.0"
 sha2 = "0.11.0"
 tauri-plugin-dialog = "2"
 base64 = "0.23.1"
+tauri-plugin-clipboard-manager = "2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

@@ -53,6 +53,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
@@ -95,6 +96,8 @@ pub fn run() {
             commands::rename_folder,
             commands::delete_folder,
             commands::list_bookmarks,
+            commands::find_bookmarks_by_url,
+            commands::list_activity,
             commands::create_bookmark,
             commands::update_bookmark,
             commands::delete_bookmark,

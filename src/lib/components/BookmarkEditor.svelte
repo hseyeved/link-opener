@@ -5,6 +5,7 @@
   import { app, errorMessage } from "#lib/state.svelte.js";
   import { describeTarget } from "#lib/targets.js";
   import type { Bookmark, LaunchTarget } from "#lib/types.js";
+  import { ui } from "#lib/ui.svelte.js";
   import Favicon from "./Favicon.svelte";
   import TagInput from "./TagInput.svelte";
   import TargetSelect from "./TargetSelect.svelte";
@@ -81,6 +82,31 @@
     return () => clearTimeout(timer);
   });
 
+  // Other bookmarks with this URL: a warning only, saving isn't blocked. Checked on open
+  // when editing, then debounced as the URL changes.
+  let duplicates = $state<Bookmark[]>([]);
+  let dupSeq = 0;
+  let firstCheck = true;
+  $effect(() => {
+    const u = url;
+    const mine = ++dupSeq;
+    const delay = firstCheck ? 0 : 400;
+    firstCheck = false;
+    if (!u.trim()) {
+      duplicates = [];
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const found = await api.findBookmarksByUrl(u, initial.bookmark?.id ?? null);
+        if (mine === dupSeq) duplicates = found;
+      } catch {
+        if (mine === dupSeq) duplicates = [];
+      }
+    }, delay);
+    return () => clearTimeout(timer);
+  });
+
   const canSave = $derived(url.trim() !== "" && !saving);
   // What "no default of its own" means for the chosen folder.
   const inherited = $derived(app.inheritedTarget(folder));
@@ -110,6 +136,8 @@
           .then(() => app.reloadBookmarks())
           .catch(() => {});
       }
+      // Recent and Most used won't list a new bookmark, so say where it went.
+      if (isNew && app.isVirtual) ui.notify(`Added to ${app.folderPath(saved.folderId)}.`);
       onclose();
     } catch (e) {
       error = errorMessage(e);
@@ -163,6 +191,17 @@
         <small class="note">Fetching title and icon…</small>
       {:else if fetchNote}
         <small class="note">{fetchNote}</small>
+      {/if}
+      {#if duplicates.length}
+        <div class="duplicates" role="status">
+          {#each duplicates as d (d.id)}
+            <small>
+              Also saved in <strong>{app.folderPath(d.folderId)}</strong
+              >{#if d.title}{" "}as “{d.title}”{/if}.
+              <button type="button" class="link" onclick={() => ui.reveal(d)}>Show</button>
+            </small>
+          {/each}
+        </div>
       {/if}
     </div>
 
@@ -271,6 +310,33 @@
   .note {
     color: var(--muted);
     font-size: 12px;
+  }
+
+  .duplicates {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    background: var(--accent-soft);
+  }
+
+  .duplicates small {
+    font-size: 12px;
+  }
+
+  .link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: inherit;
+    text-decoration: underline;
+  }
+
+  .link:hover:not(:disabled) {
+    background: none;
   }
 
   .buttons {

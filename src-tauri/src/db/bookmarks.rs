@@ -106,13 +106,87 @@ pub(crate) fn target_json(target: Option<&LaunchTarget>) -> AppResult<Option<Str
         .transpose()
 }
 
-/// Bookmarks directly in `folder_id` (`None` = Unfiled), in position order.
-pub fn list(conn: &Connection, folder_id: Option<i64>) -> AppResult<Vec<Bookmark>> {
+/// Order of a folder's bookmarks in the list.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BookmarkSort {
+    /// The user's drag-and-drop order.
+    #[default]
+    Manual,
+    /// A to Z, ignoring case; untitled bookmarks sort by URL.
+    Title,
+    /// Newest first.
+    Added,
+    /// Most recently opened first; never-opened ones last.
+    LastOpened,
+    /// Highest open count first, then most recently opened.
+    MostOpened,
+}
+
+impl BookmarkSort {
+    /// Fixed SQL per variant, so nothing user-supplied reaches the query.
+    fn order_by(self) -> &'static str {
+        match self {
+            Self::Manual => "b.position, b.id",
+            Self::Title => {
+                "CASE WHEN b.title = '' THEN b.url ELSE b.title END COLLATE NOCASE, b.position, b.id"
+            }
+            Self::Added => "b.created_at DESC, b.id DESC",
+            Self::LastOpened => {
+                "b.last_opened_at IS NULL, b.last_opened_at DESC, b.position, b.id"
+            }
+            Self::MostOpened => {
+                "b.open_count DESC, b.last_opened_at IS NULL, b.last_opened_at DESC, b.position, b.id"
+            }
+        }
+    }
+}
+
+/// Bookmarks directly in `folder_id` (`None` = Unfiled), in `sort` order.
+pub fn list(
+    conn: &Connection,
+    folder_id: Option<i64>,
+    sort: BookmarkSort,
+) -> AppResult<Vec<Bookmark>> {
     let mut stmt = conn.prepare_cached(&format!(
-        "SELECT {COLUMNS} FROM bookmarks b WHERE b.folder_id IS ?1 ORDER BY b.position, b.id"
+        "SELECT {COLUMNS} FROM bookmarks b WHERE b.folder_id IS ?1 ORDER BY {}",
+        sort.order_by()
     ))?;
     let bookmarks = stmt
         .query_map([folder_id], Bookmark::from_row)?
+        .collect::<Result<_, _>>()?;
+    Ok(bookmarks)
+}
+
+/// The Recent and Most used views, across all folders.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Activity {
+    /// Most recently opened first.
+    Recent,
+    /// Highest open count first, then most recently opened.
+    Frequent,
+}
+
+/// Up to `limit` bookmarks that have been opened, in `kind` order. Never-opened bookmarks
+/// are left out.
+pub fn list_activity(conn: &Connection, kind: Activity, limit: usize) -> AppResult<Vec<Bookmark>> {
+    let (filter, order) = match kind {
+        Activity::Recent => (
+            "b.last_opened_at IS NOT NULL",
+            "b.last_opened_at DESC, b.id",
+        ),
+        Activity::Frequent => (
+            "b.open_count > 0",
+            "b.open_count DESC, b.last_opened_at DESC, b.id",
+        ),
+    };
+    let mut stmt = conn.prepare_cached(&format!(
+        "SELECT {COLUMNS} FROM bookmarks b WHERE {filter} ORDER BY {order} LIMIT ?1"
+    ))?;
+    let limit = limit.clamp(1, super::search::MAX_LIMIT) as i64;
+    let bookmarks = stmt
+        .query_map([limit], Bookmark::from_row)?
         .collect::<Result<_, _>>()?;
     Ok(bookmarks)
 }
@@ -126,6 +200,33 @@ pub fn list_all(conn: &Connection) -> AppResult<Vec<Bookmark>> {
         .query_map([], Bookmark::from_row)?
         .collect::<Result<_, _>>()?;
     Ok(bookmarks)
+}
+
+/// Bookmarks with the same URL as `url` (normalized like a saved one), not counting
+/// `exclude_id`. A trailing slash doesn't make a URL different. At most 10, oldest first;
+/// input that isn't a valid URL matches nothing.
+pub fn find_by_url(
+    conn: &Connection,
+    url: &str,
+    exclude_id: Option<i64>,
+) -> AppResult<Vec<Bookmark>> {
+    let Ok(url) = normalize_url(url) else {
+        return Ok(Vec::new());
+    };
+    let mut stmt = conn.prepare_cached(&format!(
+        "SELECT {COLUMNS} FROM bookmarks b
+         WHERE rtrim(b.url, '/') = ?1 AND b.id IS NOT ?2 ORDER BY b.id LIMIT 10"
+    ))?;
+    let bookmarks = stmt
+        .query_map(params![url_key(&url), exclude_id], Bookmark::from_row)?
+        .collect::<Result<_, _>>()?;
+    Ok(bookmarks)
+}
+
+/// What two normalized URLs must share to count as the same: everything but trailing slashes
+/// (matches SQLite's `rtrim(url, '/')`).
+pub(crate) fn url_key(url: &str) -> &str {
+    url.trim_end_matches('/')
 }
 
 pub fn get(conn: &Connection, id: i64) -> AppResult<Bookmark> {
@@ -387,7 +488,7 @@ mod tests {
         assert_eq!(b.open_count, 0);
         assert_eq!(b.created_at, b.updated_at);
         assert_eq!(get(&conn, b.id).unwrap(), b);
-        assert_eq!(list(&conn, None).unwrap(), vec![b]);
+        assert_eq!(list(&conn, None, BookmarkSort::Manual).unwrap(), vec![b]);
     }
 
     #[test]
@@ -396,9 +497,15 @@ mod tests {
         let f = folders::create(&conn, None, "F").unwrap();
         create(&conn, new(None, "a", "a.com")).unwrap();
         create(&conn, new(Some(f.id), "b", "b.com")).unwrap();
-        assert_eq!(list(&conn, None).unwrap()[0].title, "a");
-        assert_eq!(list(&conn, Some(f.id)).unwrap()[0].title, "b");
-        assert_eq!(list(&conn, None).unwrap().len(), 1);
+        assert_eq!(
+            list(&conn, None, BookmarkSort::Manual).unwrap()[0].title,
+            "a"
+        );
+        assert_eq!(
+            list(&conn, Some(f.id), BookmarkSort::Manual).unwrap()[0].title,
+            "b"
+        );
+        assert_eq!(list(&conn, None, BookmarkSort::Manual).unwrap().len(), 1);
     }
 
     #[test]
@@ -409,7 +516,7 @@ mod tests {
         let b = create(&conn, new(Some(f.id), "b", "b.com")).unwrap();
         let u = create(&conn, new(None, "u", "u.com")).unwrap();
         assert_eq!((a.position, b.position, u.position), (0, 1, 0));
-        let titles: Vec<_> = list(&conn, Some(f.id))
+        let titles: Vec<_> = list(&conn, Some(f.id), BookmarkSort::Manual)
             .unwrap()
             .into_iter()
             .map(|b| b.title)
@@ -538,7 +645,7 @@ mod tests {
         let b = create(&conn, new(None, "b", "b.com")).unwrap();
         let c = create(&conn, new(None, "c", "c.com")).unwrap();
         let titles = |folder| -> Vec<String> {
-            list(&conn, folder)
+            list(&conn, folder, BookmarkSort::Manual)
                 .unwrap()
                 .into_iter()
                 .map(|b| b.title)
@@ -701,5 +808,127 @@ mod tests {
         }
         assert!(matches!(normalize_url(""), Err(AppError::Invalid(_))));
         assert!(matches!(normalize_url(" \t "), Err(AppError::Invalid(_))));
+    }
+
+    #[test]
+    fn sort_orders() {
+        let conn = open_in_memory().unwrap();
+        // Manual order: b, a, c, untitled (z.com).
+        let ids: Vec<i64> = [
+            ("b", "b.com"),
+            ("A", "a.com"),
+            ("c", "c.com"),
+            ("", "z.com"),
+        ]
+        .into_iter()
+        .map(|(t, u)| create(&conn, new(None, t, u)).unwrap().id)
+        .collect();
+        let set = |id: i64, created: i64, opened: Option<i64>, count: i64| {
+            conn.execute(
+                "UPDATE bookmarks SET created_at = ?2, last_opened_at = ?3, open_count = ?4
+                 WHERE id = ?1",
+                params![id, created, opened, count],
+            )
+            .unwrap();
+        };
+        set(ids[0], 300, Some(10), 5); // b
+        set(ids[1], 100, Some(30), 1); // A
+        set(ids[2], 400, None, 0); // c: never opened
+        set(ids[3], 200, Some(20), 5); // untitled
+        let titles = |sort| -> Vec<String> {
+            list(&conn, None, sort)
+                .unwrap()
+                .into_iter()
+                .map(|b| if b.title.is_empty() { b.url } else { b.title })
+                .collect()
+        };
+
+        assert_eq!(
+            titles(BookmarkSort::Manual),
+            ["b", "A", "c", "https://z.com"]
+        );
+        // The untitled one sorts by its URL, "https://z.com", so after "c".
+        assert_eq!(
+            titles(BookmarkSort::Title),
+            ["A", "b", "c", "https://z.com"]
+        );
+        assert_eq!(
+            titles(BookmarkSort::Added),
+            ["c", "b", "https://z.com", "A"]
+        );
+        assert_eq!(
+            titles(BookmarkSort::LastOpened),
+            ["A", "https://z.com", "b", "c"]
+        );
+        // Equal counts: the more recently opened first.
+        assert_eq!(
+            titles(BookmarkSort::MostOpened),
+            ["https://z.com", "b", "A", "c"]
+        );
+
+        let parsed: BookmarkSort = serde_json::from_str(r#""lastOpened""#).unwrap();
+        assert_eq!(parsed, BookmarkSort::LastOpened);
+    }
+
+    #[test]
+    fn activity_lists() {
+        let conn = open_in_memory().unwrap();
+        let f = folders::create(&conn, None, "F").unwrap();
+        let a = create(&conn, new(None, "a", "a.com")).unwrap();
+        let b = create(&conn, new(Some(f.id), "b", "b.com")).unwrap();
+        let c = create(&conn, new(None, "c", "c.com")).unwrap();
+        create(&conn, new(None, "never", "never.com")).unwrap();
+        let set = |id: i64, opened: i64, count: i64| {
+            conn.execute(
+                "UPDATE bookmarks SET last_opened_at = ?2, open_count = ?3 WHERE id = ?1",
+                params![id, opened, count],
+            )
+            .unwrap();
+        };
+        set(a.id, 300, 1);
+        set(b.id, 100, 4);
+        set(c.id, 200, 4);
+        let ids = |kind, limit| -> Vec<i64> {
+            list_activity(&conn, kind, limit)
+                .unwrap()
+                .into_iter()
+                .map(|b| b.id)
+                .collect()
+        };
+
+        assert_eq!(ids(Activity::Recent, 50), [a.id, c.id, b.id]);
+        // Equal counts: the more recently opened first.
+        assert_eq!(ids(Activity::Frequent, 50), [c.id, b.id, a.id]);
+        assert_eq!(ids(Activity::Recent, 2), [a.id, c.id]);
+        assert_eq!(ids(Activity::Frequent, 1), [c.id]);
+    }
+
+    #[test]
+    fn find_by_url_matches_normalized_url() {
+        let conn = open_in_memory().unwrap();
+        let f = folders::create(&conn, None, "F").unwrap();
+        let a = create(&conn, new(None, "a", "https://example.com/")).unwrap();
+        let b = create(&conn, new(Some(f.id), "b", "example.com")).unwrap();
+        create(&conn, new(None, "other", "example.com/other")).unwrap();
+        create(&conn, new(None, "http", "http://example.com")).unwrap();
+        let ids = |url: &str, exclude| -> Vec<i64> {
+            find_by_url(&conn, url, exclude)
+                .unwrap()
+                .into_iter()
+                .map(|b| b.id)
+                .collect()
+        };
+
+        // Missing scheme, surrounding space and trailing slashes don't matter.
+        assert_eq!(ids("example.com", None), [a.id, b.id]);
+        assert_eq!(ids("  https://example.com//  ", None), [a.id, b.id]);
+        // The bookmark being edited isn't its own duplicate.
+        assert_eq!(ids("example.com", Some(a.id)), [b.id]);
+        // Nothing else is normalized: another path, another scheme.
+        assert_eq!(ids("example.com/other/", None).len(), 1);
+        assert_eq!(ids("example.com/x", None), Vec::<i64>::new());
+        assert_eq!(ids("HTTPS://example.com", None), Vec::<i64>::new());
+        assert_eq!(ids("   ", None), Vec::<i64>::new());
+        assert_eq!(ids("", None), Vec::<i64>::new());
     }
 }

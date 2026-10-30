@@ -27,6 +27,9 @@ class Ui {
   /** Short-lived status text in the toolbar. */
   notice = $state<string | null>(null);
   #noticeTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Bookmark row to scroll to and briefly highlight. */
+  highlightId = $state<number | null>(null);
+  #highlightTimer: ReturnType<typeof setTimeout> | undefined;
 
   notify(text: string | null, ms = 5000) {
     clearTimeout(this.#noticeTimer);
@@ -49,6 +52,19 @@ class Ui {
     this.importing = null;
   }
 
+  /** Closes any dialog and shows the bookmark in its folder, highlighted. */
+  async reveal(bookmark: Bookmark) {
+    this.closeAll();
+    if (!(await app.run(() => app.select({ kind: "folder", id: bookmark.folderId })))) return;
+    clearTimeout(this.#highlightTimer);
+    this.highlightId = bookmark.id;
+    this.#highlightTimer = setTimeout(() => (this.highlightId = null), 2000);
+  }
+
+  async copyLink(bookmark: Bookmark) {
+    if (await app.run(() => api.copyText(bookmark.url))) this.notify("Copied link.");
+  }
+
   /** Opens with the bookmark's default browser if it has one (and opening directly is on),
    * else shows the picker. `forcePicker` (Shift) always shows the picker. */
   async open(bookmark: Bookmark, forcePicker = false) {
@@ -62,6 +78,7 @@ class Ui {
     if (resolved && app.openDirect && !forcePicker) {
       try {
         await api.openUrl(bookmark.id, resolved.target);
+        app.refreshAfterOpen();
         return;
       } catch (e) {
         // E.g. the default browser was uninstalled: let the user pick another.

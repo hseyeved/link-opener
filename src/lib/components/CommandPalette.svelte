@@ -17,6 +17,23 @@
     ui.open(bookmark, forcePicker);
   }
 
+  // The toolbar notice is hidden behind the backdrop, so copying confirms in the footer.
+  let copied = $state(false);
+  let copiedTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => () => clearTimeout(copiedTimer));
+
+  async function copy(bookmark: Bookmark) {
+    try {
+      await api.copyText(bookmark.url);
+      error = null;
+      copied = true;
+      clearTimeout(copiedTimer);
+      copiedTimer = setTimeout(() => (copied = false), 1500);
+    } catch (e) {
+      error = errorMessage(e);
+    }
+  }
+
   let query = $state("");
   let results = $state<Bookmark[]>([]);
   let selected = $state(0);
@@ -71,6 +88,10 @@
       } else {
         open(bookmark, e.shiftKey);
       }
+    } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "c") {
+      e.preventDefault();
+      const bookmark = results[selected];
+      if (bookmark) copy(bookmark);
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "m") {
       e.preventDefault();
       const bookmark = results[selected];
@@ -172,7 +193,11 @@
       <span><kbd>Shift</kbd>+<kbd>Enter</kbd> choose browser</span>
       <span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> edit</span>
       <span><kbd>Ctrl</kbd>+<kbd>M</kbd> move</span>
+      <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> copy link</span>
       <span><kbd>Esc</kbd> close</span>
+      {#if copied}
+        <span class="copied" role="status">Copied</span>
+      {/if}
     </footer>
   </div>
 </div>
@@ -301,11 +326,17 @@
 
   footer {
     display: flex;
-    gap: 14px;
+    flex-wrap: wrap;
+    gap: 4px 14px;
     padding: 8px 16px;
     border-top: 1px solid var(--border);
     color: var(--muted);
     font-size: 11px;
+  }
+
+  .copied {
+    margin-left: auto;
+    color: var(--accent);
   }
 
   kbd {

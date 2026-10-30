@@ -4,6 +4,26 @@ All notable changes to Link Opener. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-10-30
+
+### Added
+
+- A **Copy link** button on each bookmark, and Ctrl/Cmd+Shift+C in search to copy the selected
+  result's link.
+- The bookmark editor warns when the URL is already saved, and **Show** jumps to the other
+  bookmark. Saving isn't blocked.
+- Sort bookmarks by title, date added, last opened or most opened, from the toolbar. The choice
+  applies to every folder and is kept in backups. Drag-and-drop reordering works in manual
+  order only.
+- **Recent** and **Most used** in the sidebar list the bookmarks you've opened, across all folders,
+  with each one's folder (and, in Most used, how many times it was opened).
+
+### Changed
+
+- Import's "skip duplicates" uses the same rule as the editor's warning, so a URL that differs
+  only by a trailing slash (`https://example.com/` and `https://example.com`) now counts as a
+  duplicate.
+
 ## [0.3.2] - 2026-10-29
 
 ### Changed

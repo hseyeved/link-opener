@@ -4,7 +4,7 @@ use tauri_plugin_autostart::ManagerExt;
 
 use crate::browsers::prefs::{self, BrowserPrefs};
 use crate::browsers::{launch, Browser, BrowserCache, LaunchTarget, Os};
-use crate::db::bookmarks::{self, Bookmark, BookmarkPatch, NewBookmark};
+use crate::db::bookmarks::{self, Activity, Bookmark, BookmarkPatch, BookmarkSort, NewBookmark};
 use crate::db::folders::{self, Folder};
 use crate::db::tags::{self, Tag};
 use crate::db::targets::{self, ResolvedTarget};
@@ -35,9 +35,34 @@ pub fn delete_folder(db: State<'_, Db>, id: i64) -> AppResult<()> {
     folders::delete(&db.conn(), id)
 }
 
+/// `sort` defaults to the manual (drag-and-drop) order.
 #[tauri::command]
-pub fn list_bookmarks(db: State<'_, Db>, folder_id: Option<i64>) -> AppResult<Vec<Bookmark>> {
-    bookmarks::list(&db.conn(), folder_id)
+pub fn list_bookmarks(
+    db: State<'_, Db>,
+    folder_id: Option<i64>,
+    sort: Option<BookmarkSort>,
+) -> AppResult<Vec<Bookmark>> {
+    bookmarks::list(&db.conn(), folder_id, sort.unwrap_or_default())
+}
+
+/// Recently or most opened bookmarks across all folders (default 50).
+#[tauri::command]
+pub fn list_activity(
+    db: State<'_, Db>,
+    kind: Activity,
+    limit: Option<usize>,
+) -> AppResult<Vec<Bookmark>> {
+    bookmarks::list_activity(&db.conn(), kind, limit.unwrap_or(50))
+}
+
+/// Other bookmarks with the same URL, for the editor's duplicate warning.
+#[tauri::command]
+pub fn find_bookmarks_by_url(
+    db: State<'_, Db>,
+    url: String,
+    exclude_id: Option<i64>,
+) -> AppResult<Vec<Bookmark>> {
+    bookmarks::find_by_url(&db.conn(), &url, exclude_id)
 }
 
 #[tauri::command]
