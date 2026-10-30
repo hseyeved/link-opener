@@ -1,6 +1,6 @@
 {
   "name": "link-opener",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "description": "Bookmark library that opens links in the browser and profile you choose",
   "type": "module",
